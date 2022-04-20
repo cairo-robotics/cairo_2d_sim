@@ -1,18 +1,18 @@
 import pygame as pg
 
-class BasicEvironment():
+class BasicEnvironment():
         
-    def __init__(self, width, height, floor_color):
+    def __init__(self, height, width, floor_color=None):
         self.width = width
         self.height = height
-        self.floor_color = floor_color if floor_color is not None else [60, 60, 60]
+        self.floor_color = floor_color if floor_color is not None else [255, 255, 255]
         
     def render(self, screen):
         screen.fill((0, 0, 0))
         # field
-        pg.draw.rect(screen, self.floor_color, (20, 20, self.width, self.height))
+        pg.draw.rect(screen, self.floor_color, (0, 0, self.width, self.height))
         # bounds
-        pg.draw.rect(screen, [255, 255, 255], (20, 20, self.width, self.height), 8)
+        pg.draw.rect(screen, [0, 0, 0], (0, 0, self.width, self.height), 8)
                 
     
     @property

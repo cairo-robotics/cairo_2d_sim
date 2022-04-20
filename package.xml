@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+  <package format="3">
   <name>cairo_2d_sim</name>
   <version>0.0.0</version>
   <description>Cairo lab's 2D simulation package</description>
@@ -13,7 +13,7 @@
   <!-- One license tag required, multiple allowed, one license per tag -->
   <!-- Commonly used license strings: -->
   <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
-  <license>TODO</license>
+  <license>MIT</license>
 
 
   <!-- Url tags are optional, but multiple are allowed, one per tag -->
@@ -49,68 +49,12 @@
   <!-- Use doc_depend for packages you need only for building documentation: -->
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>amcl</build_depend>
-  <build_depend>angles</build_depend>
-  <build_depend>eigen_conversions</build_depend>
-  <build_depend>eigen_stl_containers</build_depend>
-  <build_depend>filters</build_depend>
-  <build_depend>geometric_shapes</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>random_numbers</build_depend>
-  <build_depend>roscpp</build_depend>
-  <build_depend>rospy</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>tf</build_depend>
-  <build_depend>tf2</build_depend>
-  <build_depend>tf_conversions</build_depend>
-  <build_depend>tf2_eigen</build_depend>
-  <build_depend>tf2_geometry_msgs</build_depend>
-  <build_depend>tf2_kdl</build_depend>
-  <build_depend>tf2_msgs</build_depend>
-  <build_depend>tf2_py</build_depend>
-  <build_depend>tf2_ros</build_depend>
-  <build_export_depend>amcl</build_export_depend>
-  <build_export_depend>angles</build_export_depend>
-  <build_export_depend>eigen_conversions</build_export_depend>
-  <build_export_depend>eigen_stl_containers</build_export_depend>
-  <build_export_depend>filters</build_export_depend>
-  <build_export_depend>geometric_shapes</build_export_depend>
-  <build_export_depend>geometry_msgs</build_export_depend>
-  <build_export_depend>random_numbers</build_export_depend>
-  <build_export_depend>roscpp</build_export_depend>
-  <build_export_depend>rospy</build_export_depend>
-  <build_export_depend>std_msgs</build_export_depend>
-  <build_export_depend>tf</build_export_depend>
-  <build_export_depend>tf2</build_export_depend>
-  <build_export_depend>tf_conversions</build_export_depend>
-  <build_export_depend>tf2_eigen</build_export_depend>
-  <build_export_depend>tf2_geometry_msgs</build_export_depend>
-  <build_export_depend>tf2_kdl</build_export_depend>
-  <build_export_depend>tf2_msgs</build_export_depend>
-  <build_export_depend>tf2_py</build_export_depend>
-  <build_export_depend>tf2_ros</build_export_depend>
-  <build_depend>message_generation</build_depend>
-  <exec_depend>message_runtime</exec_depend>
-  <exec_depend>amcl</exec_depend>
-  <exec_depend>angles</exec_depend>
-  <exec_depend>eigen_conversions</exec_depend>
-  <exec_depend>eigen_stl_containers</exec_depend>
-  <exec_depend>filters</exec_depend>
-  <exec_depend>geometric_shapes</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>random_numbers</exec_depend>
-  <exec_depend>roscpp</exec_depend>
-  <exec_depend>rospy</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>tf</exec_depend>
-  <exec_depend>tf2</exec_depend>
-  <exec_depend>tf_conversions</exec_depend>
-  <exec_depend>tf2_eigen</exec_depend>
-  <exec_depend>tf2_geometry_msgs</exec_depend>
-  <exec_depend>tf2_kdl</exec_depend>
-  <exec_depend>tf2_msgs</exec_depend>
-  <exec_depend>tf2_py</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>message_generation</depend>
+
+  <depend>message_runtime</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

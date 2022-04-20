@@ -1,8 +1,8 @@
 import pygame as pg
 
 
-class Static:
-    def __init__(self, x, y, width, height, color):
+class RectangleStatic:
+    def __init__(self, x, y, width, height, color=None):
         self.x = x
         self.y = y
         self.width = width
