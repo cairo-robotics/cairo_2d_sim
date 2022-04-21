@@ -4,7 +4,8 @@ import rospy
 from geometry_msgs.msg import Pose
 import pygame as pg
 
-from cairo_2d_sim.display.utils import  IMAGE_FILE_DIR
+from cairo_2d_sim.display.utils import IMAGE_FILE_DIR
+from cairo_2d_sim.state.utils import offset
 from cairo_2d_sim.msg import KeyPress, MousePress
 
 
@@ -27,16 +28,27 @@ class HolonomicRobot(pg.sprite.Sprite):
         self.new_yaw = yaw
         self.left_click = False
         self.color = [255, 255, 255]
+        self.trace_color = [0, 0, 0]  
         self.dx = 0
         self.dy = 0
-        self.pos_dx = 5
+        self.pos_dx = 2
+        self.points = []
+        self.points_count = 0
         self.keyboard_sub = rospy.Subscriber('/cairo_2d_sim/keyboard', KeyPress, self._keyboard_cb)
         self.mouse_pos_sub = rospy.Subscriber('/cairo_2d_sim/mouse_pos', Pose, self._mouse_pos_cb)
         self.mouse_press_sub = rospy.Subscriber('/cairo_2d_sim/mouse_press', MousePress, self._mouse_press_cb)
-
+    
+    def update(self):
+        self._update_xy()
+        self._update_yaw()
+        self._update_points()
+    
     def render(self, screen):
         rotimage = pg.transform.rotate(self.image, self.yaw)
         rect = rotimage.get_rect(center=(self.x_pos, self.y_pos))
+        for p1, p2 in offset(self.points):
+            if p1 and p2:
+                pg.draw.line(screen, (0,0,0), p1, p2)
         screen.blit(rotimage, rect) 
 
     def _update_xy(self):
@@ -47,10 +59,10 @@ class HolonomicRobot(pg.sprite.Sprite):
         if self.left_click:
             self.yaw = self.new_yaw
     
-    def update(self):
-        self._update_xy()
-        self._update_yaw()
-
+    def _update_points(self):
+        if self.points_count % 10 == 0:
+            self.points.append((self.x_pos, self.y_pos))
+        
     def _keyboard_cb(self, msg):
         if msg.left.data:
             self.dx = -self.pos_dx

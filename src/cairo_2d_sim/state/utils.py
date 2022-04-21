@@ -10,3 +10,9 @@ def rad2deg(a):
 
 def deg2rad(a):
     return math.pi * a / 180
+
+def offset(iterable):
+    prev = None
+    for elem in iterable:
+        yield prev, elem
+        prev = elem
