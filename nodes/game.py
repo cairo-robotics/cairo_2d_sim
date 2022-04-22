@@ -14,10 +14,10 @@ if __name__ == '__main__':
     WIDTH = 1000
     screen = pg.display.set_mode((HEIGHT, WIDTH))
     pg.display.set_caption("simulation screen")
-    constraint_1 = RectangleStatic(200, 100, 200, 800, (255, 0, 0))
-    constraint_2a = RectangleStatic(400, 100, 1000, 200, (0, 255, 0))
-    constraint_2b = RectangleStatic(400, 700, 1000, 200, (0, 255, 0))
-    constraint_3 = RectangleStatic(1200, 100, 200, 400, (0, 0, 255))
+    constraint_1 = RectangleStatic(400, 100, 10, 800, (255, 0, 0, 100))
+    constraint_2a = RectangleStatic(400, 100, 1000, 10, (0, 255, 0, 100))
+    constraint_2b = RectangleStatic(400, 700, 1000, 10, (0, 255, 0, 100))
+    constraint_3 = RectangleStatic(1200, 100, 10, 400, (0, 0, 255, 100))
     statics = [constraint_1, constraint_2a, constraint_2b, constraint_3]
     sprite_1 = HolonomicRobot(100, 500, 90)
     sprites = [sprite_1]

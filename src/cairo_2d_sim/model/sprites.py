@@ -17,7 +17,7 @@ class HolonomicRobot(pg.sprite.Sprite):
     def __init__(self, x_init, y_init, yaw, image_fp=None):
         super().__init__()
         self.image = pg.image.load(image_fp).convert() if image_fp is not None else pg.image.load(IMAGE_FILE_DIR + 'millennium-falcon.svg')
-        self.image = pg.transform.scale(self.image, (150, 150))
+        self.image = pg.transform.scale(self.image, (75, 75))
         self.image = pg.transform.rotate(self.image, -90)
         self.image.get_rect(center=(x_init, y_init))
         self.x_pos = int(x_init)

@@ -4,6 +4,10 @@ import pygame as pg
 
 IMAGE_FILE_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../../../data/img/"
 
+def draw_rect_alpha(surface, color, rect):
+    shape_surf = pg.Surface(pg.Rect(rect).size, pg.SRCALPHA)
+    pg.draw.rect(shape_surf, color, shape_surf.get_rect())
+    surface.blit(shape_surf, rect)
 
 def text_objects(text, font):
     txtsurf = font.render(text, True, (0, 0, 0))
