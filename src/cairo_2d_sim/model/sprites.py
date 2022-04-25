@@ -1,7 +1,7 @@
 from math import pi, atan2
 
 import rospy
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, Pose2D
 import pygame as pg
 
 from cairo_2d_sim.display.utils import IMAGE_FILE_DIR
@@ -37,11 +37,17 @@ class HolonomicRobot(pg.sprite.Sprite):
         self.keyboard_sub = rospy.Subscriber('/cairo_2d_sim/keyboard', KeyPress, self._keyboard_cb)
         self.mouse_pos_sub = rospy.Subscriber('/cairo_2d_sim/mouse_pos', Pose, self._mouse_pos_cb)
         self.mouse_press_sub = rospy.Subscriber('/cairo_2d_sim/mouse_press', MousePress, self._mouse_press_cb)
+        self.state_pub = rospy.Publisher('/cairo_2d_sim/robot_state', Pose2D, queue_size=1)
     
     def update(self):
         self._update_xy()
         self._update_yaw()
         self._update_points()
+        pose2d = Pose2D()
+        pose2d.x = self.x_pos
+        pose2d.y = self.y_pos
+        pose2d.theta = self.yaw
+        self.state_pub.publish(pose2d)
     
     def render(self, screen):
         rotimage = pg.transform.rotate(self.image, self.yaw)
