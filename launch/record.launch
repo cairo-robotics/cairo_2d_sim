@@ -1,0 +1,6 @@
+<launch>
+
+  <node pkg="cairo_2d_sim" name="demonstrate" type="demonstrate.py" output = "screen"/>
+  <node pkg="cairo_2d_sim" name="record" type="record.py" output = "screen"/>
+
+</launch>

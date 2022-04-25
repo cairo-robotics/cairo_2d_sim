@@ -1,5 +1,0 @@
-<launch>
-
-  <node pkg="cairo_2d_sim" name="game" type="game.py" output = "screen"/>
-
-</launch>
