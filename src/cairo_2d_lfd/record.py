@@ -1,8 +1,10 @@
 import json
+import os
 
 import rospy
 from geometry_msgs.msg import Pose2D
 
+CURRENT_WORKING_DIRECTORY = os.getcwd()
 
 class Record:
     
@@ -19,7 +21,8 @@ class Record:
         self.demonstration.append(data)
     
     def save_demonstration(self):
+        file_path = os.path.join(CURRENT_WORKING_DIRECTORY, 'demonstration.json')
         print("Saving demonstration...")
         print(self.demonstration)
-        with open('./demonstration.json', 'w') as f:
+        with open(file_path, 'w') as f:
             json.dump(self.demonstration, f)
