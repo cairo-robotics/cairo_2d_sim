@@ -4,10 +4,16 @@ import pygame as pg
 
 IMAGE_FILE_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../../../data/img/"
 
-def draw_rect_alpha(surface, color, rect):
+def draw_rect_alpha(screen, color, rect):
     shape_surf = pg.Surface(pg.Rect(rect).size, pg.SRCALPHA)
     pg.draw.rect(shape_surf, color, shape_surf.get_rect())
-    surface.blit(shape_surf, rect)
+    screen.blit(shape_surf, rect)
+    
+def draw_circle_alpha(screen, color, center, radius):
+    target_rect = pg.Rect(center, (0, 0)).inflate((radius * 2, radius * 2))
+    shape_surf = pg.Surface(target_rect.size, pg.SRCALPHA)
+    pg.draw.circle(shape_surf, color, (radius, radius), radius)
+    screen.blit(shape_surf, target_rect)
 
 def text_objects(text, font):
     txtsurf = font.render(text, True, (0, 0, 0))
