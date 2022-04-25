@@ -6,7 +6,7 @@ import pygame as pg
 
 from cairo_2d_sim.display.utils import IMAGE_FILE_DIR
 from cairo_2d_sim.state.utils import offset
-from cairo_2d_sim.msg import KeyPress, MousePress
+from cairo_2d_sim.msg import KeyboardArrows, MousePress
 
 
 class HolonomicRobot(pg.sprite.Sprite):
@@ -34,7 +34,8 @@ class HolonomicRobot(pg.sprite.Sprite):
         self.pos_dx = 2
         self.points = []
         self.points_count = 0
-        self.keyboard_sub = rospy.Subscriber('/cairo_2d_sim/keyboard', KeyPress, self._keyboard_cb)
+        self.constraint_toggle_subg = rospy.Subscriber('/cairo_2d_sim/constraint_toggles', CostraintToggles, self._keyboard_cb)
+        self.keyboard_arrow_sub = rospy.Subscriber('/cairo_2d_sim/keyboard_arrows', KeyboardArrows, self._keyboard_cb)
         self.mouse_pos_sub = rospy.Subscriber('/cairo_2d_sim/mouse_pos', Pose, self._mouse_pos_cb)
         self.mouse_press_sub = rospy.Subscriber('/cairo_2d_sim/mouse_press', MousePress, self._mouse_press_cb)
         self.state_pub = rospy.Publisher('/cairo_2d_sim/robot_state', Pose2D, queue_size=1)
