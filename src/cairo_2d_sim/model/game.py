@@ -5,12 +5,13 @@ from cairo_2d_sim.display.display import Display
 
 class Game():
     
-    def __init__(self, screen, environment, sprites, statics, controllers):
+    def __init__(self, screen, environment, sprites, statics, controllers, toggles):
         self.screen = screen
-        self.display = Display(environment, sprites, statics)
+        self.display = Display(environment, sprites, statics, toggles)
         self.sprites = sprites
         self.statics = statics
         self.controllers = controllers
+        self.toggles = toggles
         
     def update(self):
         for controller in self.controllers:

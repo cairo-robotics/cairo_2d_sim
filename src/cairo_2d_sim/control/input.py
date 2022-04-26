@@ -64,7 +64,7 @@ class ConstraintTogglesInput():
         self.c1 = False
         self.c2 = False
         self.c3 = False
-        self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/keyboard_constraints', ConstraintToggles, queue_size=1)
+        self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/constraint_toggles', ConstraintToggles, queue_size=1)
         
     def update(self):
         self.c1 = pg.key.get_pressed()[pg.K_1]
