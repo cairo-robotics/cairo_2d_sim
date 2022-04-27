@@ -29,9 +29,9 @@ if __name__ == '__main__':
     statics = [start, end, constraint_1, constraint_2a, constraint_2b, constraint_3]
     
     # Constraint toggles
-    ct1 = ConstraintOneToggle()
-    ct2 = ConstraintTwoToggle()
-    ct3 = ConstraintThreeToggle()
+    ct1 = ConstraintOneToggle(1500, 100)
+    ct2 = ConstraintTwoToggle(1600, 100)
+    ct3 = ConstraintThreeToggle(1700, 100)
     toggles = [ct1, ct2, ct3]
     
     # The only sprite will be the Holonomic Robot

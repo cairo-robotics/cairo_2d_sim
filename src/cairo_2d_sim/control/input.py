@@ -67,14 +67,26 @@ class ConstraintTogglesInput():
         self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/constraint_toggles', ConstraintToggles, queue_size=1)
         
     def update(self):
-        self.c1 = pg.key.get_pressed()[pg.K_1]
-        self.c2 = pg.key.get_pressed()[pg.K_2]
-        self.c3 = pg.key.get_pressed()[pg.K_3]
+        for event in pg.event.get():
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_1:
+                    self.c1 = True
+                else:
+                    self.c1 = False
+                if event.key == pg.K_1:
+                    self.c2 = True
+                else:
+                    self.c2 = False
+                if event.key == pg.K_1:
+                    self.c3 = True
+                else:
+                    self.c3 = False
+            print(event)
         ct = ConstraintToggles()
         ct.c1.data = self.c1
         ct.c2.data = self.c2
         ct.c3.data = self.c3
-        self.keyboard_pub.publish()
+        self.keyboard_pub.publish(ct)
 
         
             

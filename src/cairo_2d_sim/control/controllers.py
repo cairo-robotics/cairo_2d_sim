@@ -15,7 +15,7 @@ class HolonomicController():
 class InterfaceController():
     
     def __init__(self):
-        self.constraints = ConstraintTogglesInput()
+        self.constraint_toggles = ConstraintTogglesInput()
     
     def update(self):
-        self.constraints.update()
+        self.constraint_toggles.update()
