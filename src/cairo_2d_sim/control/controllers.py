@@ -7,15 +7,15 @@ class HolonomicController():
         self.mouse_press = MousePressInput()
         self.keyboard = KeyboardArrowsInput()
     
-    def update(self):
-        self.mouse_position.update()
-        self.mouse_press.update()
-        self.keyboard.update()
+    def update(self, event):
+        self.mouse_position.update(event)
+        self.mouse_press.update(event)
+        self.keyboard.update(event)
         
 class InterfaceController():
     
     def __init__(self):
         self.constraint_toggles = ConstraintTogglesInput()
     
-    def update(self):
-        self.constraint_toggles.update()
+    def update(self, event):
+        self.constraint_toggles.update(event)

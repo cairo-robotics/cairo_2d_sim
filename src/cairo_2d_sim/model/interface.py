@@ -1,9 +1,11 @@
 import rospy
+from std_msgs.msg import Bool
 import pygame as pg
 
 from cairo_2d_sim.display.utils import IMAGE_FILE_DIR
 from cairo_2d_sim.msg import ConstraintToggles
-
+         
+        
 class ConstraintOneToggle:
     def __init__(self, x, y):
         self.x = x
@@ -17,7 +19,11 @@ class ConstraintOneToggle:
         self.off_image = pg.transform.scale(self.off_image, (75, 75))
 
         self.constraint_sub = rospy.Subscriber('/cairo_2d_sim/constraint_toggles', ConstraintToggles, callback=self.constraint_cb)
+        self.constraint_pub = rospy.Publisher('/cairo_2d_sim/constraint_one', Bool, queue_size=1)
         self.on = False
+
+    def update(self):
+        self.constraint_pub.publish(self.on)
 
     def render(self, screen):
         if self.on:
@@ -27,6 +33,7 @@ class ConstraintOneToggle:
     
     def toggle(self):
         self.on = not self.on
+        self.constraint_pub.publish(self.on)
         
     def constraint_cb(self, msg):
         if msg.c1.data:
@@ -45,8 +52,12 @@ class ConstraintTwoToggle:
         self.off_image = pg.transform.scale(self.off_image, (75, 75))
     
         self.constraint_sub = rospy.Subscriber('/cairo_2d_sim/constraint_toggles', ConstraintToggles, callback=self.constraint_cb)
+        self.constraint_pub = rospy.Publisher('/cairo_2d_sim/constraint_two', Bool, queue_size=1)
         self.on = False
 
+    def update(self):
+        self.constraint_pub.publish(self.on)
+        
     def render(self, screen):
         if self.on:
             screen.blit(self.on_image, (self.x, self.y))
@@ -55,6 +66,7 @@ class ConstraintTwoToggle:
     
     def toggle(self):
         self.on = not self.on
+        self.constraint_pub.publish(self.on)
         
     def constraint_cb(self, msg):
         if msg.c2.data:
@@ -73,7 +85,11 @@ class ConstraintThreeToggle:
         self.off_image = pg.transform.scale(self.off_image, (75, 75))
     
         self.constraint_sub = rospy.Subscriber('/cairo_2d_sim/constraint_toggles', ConstraintToggles, callback=self.constraint_cb)
+        self.constraint_pub = rospy.Publisher('/cairo_2d_sim/constraint_three', Bool, queue_size=1)
         self.on = False
+    
+    def update(self):
+        self.constraint_pub.publish(self.on)
 
     def render(self, screen):
         if self.on:

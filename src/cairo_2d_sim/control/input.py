@@ -4,7 +4,7 @@ import pygame as pg
 import rospy
 import math as m
 from geometry_msgs.msg import Pose
-from cairo_2d_sim.msg import ConstraintToggles, KeyboardArrows, MousePress
+from cairo_2d_sim.msg import ConstraintToggles, KeyboardArrows, MousePress, MenuKeys
 
 
 class MousePositionInput():
@@ -12,9 +12,9 @@ class MousePositionInput():
     def __init__(self):
         self.x = 0
         self.y = 0
-        self.mouse_position_pub = rospy.Publisher('/cairo_2d_sim/mouse_pos', Pose, queue_size=1)
+        self.mouse_position_pub = rospy.Publisher('/cairo_2d_sim/mouse_position', Pose, queue_size=1)
     
-    def update(self):
+    def update(self, _):
         self.x, self.y = pg.mouse.get_pos()
         pose = Pose()
         pose.position.x = self.x
@@ -29,7 +29,7 @@ class MousePressInput():
         self.right = 0
         self.mouse_press_pub = rospy.Publisher('/cairo_2d_sim/mouse_press', MousePress, queue_size=1)
     
-    def update(self):
+    def update(self, _):
         self.left, self.middle, self.right = pg.mouse.get_pressed()
         mouse_press = MousePress()
         mouse_press.left.data = True if self.left == 1 else False
@@ -44,9 +44,9 @@ class KeyboardArrowsInput():
         self.down = False
         self.left = False
         self.right = False
-        self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/keyboard_arrows', KeyboardArrows, queue_size=1)
+        self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/direction_commands', KeyboardArrows, queue_size=1)
     
-    def update(self):
+    def update(self, _):
         self.up = pg.key.get_pressed()[pg.K_UP]
         self.down = pg.key.get_pressed()[pg.K_DOWN]
         self.left = pg.key.get_pressed()[pg.K_LEFT]
@@ -66,27 +66,55 @@ class ConstraintTogglesInput():
         self.c3 = False
         self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/constraint_toggles', ConstraintToggles, queue_size=1)
         
-    def update(self):
-        for event in pg.event.get():
+    def update(self, event):
+        if event is not None:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_1:
                     self.c1 = True
                 else:
                     self.c1 = False
-                if event.key == pg.K_1:
+                if event.key == pg.K_2:
                     self.c2 = True
                 else:
                     self.c2 = False
-                if event.key == pg.K_1:
+                if event.key == pg.K_3:
                     self.c3 = True
                 else:
                     self.c3 = False
-            print(event)
-        ct = ConstraintToggles()
-        ct.c1.data = self.c1
-        ct.c2.data = self.c2
-        ct.c3.data = self.c3
-        self.keyboard_pub.publish(ct)
+                ct = ConstraintToggles()
+                ct.c1.data = self.c1
+                ct.c2.data = self.c2
+                ct.c3.data = self.c3
+                self.keyboard_pub.publish(ct)
+
+        
+class MenuCommandsInput():
+    
+    def __init__(self):
+        self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/menu_commands', MenuKeys, queue_size=1)
+        self.capture
+        
+    def update(self, event):
+         if event is not None:
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_c:
+                    self.c1 = True
+                else:
+                    self.c1 = False
+                if event.key == pg.K_2:
+                    self.c2 = True
+                else:
+                    self.c2 = False
+                if event.key == pg.K_3:
+                    self.c3 = True
+                else:
+                    self.c3 = False
+                ct = ConstraintToggles()
+                ct.c1.data = self.c1
+                ct.c2.data = self.c2
+                ct.c3.data = self.c3
+                self.keyboard_pub.publish(ct)
+
 
         
             

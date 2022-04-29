@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 import rospy
-import json
+import sys
 import pygame as pg
 
 from cairo_2d_sim.display.environments import BasicEnvironment
@@ -49,11 +49,11 @@ if __name__ == '__main__':
     # Main game engine and loop
     game_engine = Game(screen, env, sprites, statics, controllers, toggles)
     rospy.init_node('game_node', anonymous=True)
+     
+    
     try:
-        while not rospy.is_shutdown():
-            for event in pg.event.get():
-                if event.type == pg.QUIT:
-                    exit()
-            game_engine.run()
+        game_engine.run()
+        rospy.signal_shutdown("Demonstration game over.")
     except KeyboardInterrupt:
-        exit()
+        pg.quit()
+        sys.exit()
