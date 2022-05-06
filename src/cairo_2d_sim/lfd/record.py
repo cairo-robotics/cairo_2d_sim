@@ -1,12 +1,13 @@
 import json
 import os
 import copy
+import uuid
 
 import rospy
 from geometry_msgs.msg import Pose2D
 from std_msgs.msg import Bool
 
-from cairo_2d_sim.msg import ConstraintToggles, KeyboardArrows, MousePress
+from cairo_2d_sim.msg import MenuCommands
 
 CURRENT_WORKING_DIRECTORY = os.getcwd()
 
@@ -18,9 +19,18 @@ class Record:
         self.constraint_one = rospy.Subscriber('/cairo_2d_sim/constraint_one', Bool, self.constraint_one_cb)
         self.constraint_two = rospy.Subscriber('/cairo_2d_sim/constraint_two', Bool, self.constraint_two_cb)
         self.constraint_three = rospy.Subscriber('/cairo_2d_sim/constraint_three', Bool, self.constraint_three_cb)
-        rospy.on_shutdown(self.save_demonstration)
+        self.menu_commands = rospy.Subscriber('/cairo_2d_sim/menu_commands', MenuCommands, self._menu_commands_cb)
         self.curr_robot_state = {}
-        self.curr_constraints = {}
+        self.curr_constraints = {
+            'c1': False,
+            'c2': False,
+            'c3': False
+        }
+        self.record_state = {
+            "capture": False,
+            "restart": False,
+            "quit": False
+        }
     
     def robot_state_cb(self, msg):
         self.curr_robot_state['x'] = msg.x
@@ -35,15 +45,36 @@ class Record:
         
     def constraint_three_cb(self, msg):
         self.curr_constraints['c3'] = msg.data
+        
+    def record(self):
+        while True:
+            self.observe()
+            if self.record_state['restart']:
+                self.demonstration = []
+            if self.record_state['capture']:
+                self.save_demonstration()
+                self.record_state['capture'] = False
+            if self.record_state['quit']:
+                rospy.signal_shutdown("Quit signal received.")
+                break
+            # Going any faster than this rate will cause the program to save demonstrations repeatedly.
+            rospy.sleep(0.25)
     
-    def capture_demonstration(self):
+    def observe(self):
         observation = {}
         observation['robot_state'] = copy.deepcopy(self.curr_robot_state)
         observation['constraints'] = copy.deepcopy(self.curr_constraints)
         self.demonstration.append(observation)
     
     def save_demonstration(self):
-        file_path = os.path.join(CURRENT_WORKING_DIRECTORY, 'demonstration.json')
+        filename = str(uuid.uuid4())
+        file_path = os.path.join(CURRENT_WORKING_DIRECTORY, filename + '_demo.json')
         print("Saving demonstration...")
         with open(file_path, 'w') as f:
             json.dump(self.demonstration, f)
+        self.demonstration = []
+        
+    def _menu_commands_cb(self, msg):
+        self.record_state["quit"] = msg.quit.data
+        self.record_state["capture"] = msg.capture.data
+        self.record_state["restart"] = msg.restart.data

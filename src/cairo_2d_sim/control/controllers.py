@@ -1,4 +1,4 @@
-from cairo_2d_sim.control.input import MousePositionInput, MousePressInput, KeyboardArrowsInput, ConstraintTogglesInput
+from cairo_2d_sim.control.input import MousePositionInput, MousePressInput, KeyboardArrowsInput, ConstraintTogglesInput, MenuCommandsInput
 
 class HolonomicController():
     
@@ -16,6 +16,8 @@ class InterfaceController():
     
     def __init__(self):
         self.constraint_toggles = ConstraintTogglesInput()
+        self.menu_inputs = MenuCommandsInput()
     
     def update(self, event):
         self.constraint_toggles.update(event)
+        self.menu_inputs.update(event)

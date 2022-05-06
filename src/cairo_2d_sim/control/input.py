@@ -4,7 +4,7 @@ import pygame as pg
 import rospy
 import math as m
 from geometry_msgs.msg import Pose
-from cairo_2d_sim.msg import ConstraintToggles, KeyboardArrows, MousePress, MenuKeys
+from cairo_2d_sim.msg import ConstraintToggles, DirectionCommands, MousePress, MenuCommands
 
 
 class MousePositionInput():
@@ -44,14 +44,14 @@ class KeyboardArrowsInput():
         self.down = False
         self.left = False
         self.right = False
-        self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/direction_commands', KeyboardArrows, queue_size=1)
+        self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/direction_commands', DirectionCommands, queue_size=1)
     
     def update(self, _):
         self.up = pg.key.get_pressed()[pg.K_UP]
         self.down = pg.key.get_pressed()[pg.K_DOWN]
         self.left = pg.key.get_pressed()[pg.K_LEFT]
         self.right = pg.key.get_pressed()[pg.K_RIGHT]
-        key_press = KeyboardArrows()
+        key_press = DirectionCommands()
         key_press.up.data = self.up
         key_press.down.data = self.down
         key_press.right.data = self.right
@@ -91,29 +91,32 @@ class ConstraintTogglesInput():
 class MenuCommandsInput():
     
     def __init__(self):
-        self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/menu_commands', MenuKeys, queue_size=1)
-        self.capture
+        self.keyboard_pub = rospy.Publisher('/cairo_2d_sim/menu_commands', MenuCommands, queue_size=1)
+        self.capture = False
+        self.restart = False
+        self.quit = False
         
     def update(self, event):
-         if event is not None:
+        if event is not None:
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_c:
-                    self.c1 = True
+                    self.capture = True
                 else:
-                    self.c1 = False
-                if event.key == pg.K_2:
-                    self.c2 = True
+                    self.capture = False
+                if event.key == pg.K_r:
+                    self.restart = True
                 else:
-                    self.c2 = False
-                if event.key == pg.K_3:
-                    self.c3 = True
+                    self.restart = False
+                if event.key == pg.K_q:
+                    self.quit = True
                 else:
-                    self.c3 = False
-                ct = ConstraintToggles()
-                ct.c1.data = self.c1
-                ct.c2.data = self.c2
-                ct.c3.data = self.c3
-                self.keyboard_pub.publish(ct)
+                    self.quit = False
+                mc = MenuCommands()
+                mc.capture.data = self.capture
+                mc.restart.data = self.restart
+                mc.quit.data = self.quit
+                self.keyboard_pub.publish(mc)
+
 
 
         

@@ -51,7 +51,8 @@ catkin_python_setup()
 add_message_files(
   FILES
   ConstraintToggles.msg
-  KeyboardArrows.msg
+  DirectionCommands.msg
+  MenuCommands.msg
   MousePress.msg
   )
 
