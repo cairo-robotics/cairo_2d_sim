@@ -54,6 +54,7 @@ add_message_files(
   DirectionCommands.msg
   MenuCommands.msg
   MousePress.msg
+  Pose2DStamped.msg
   )
 
 ## Generate services in the 'srv' folder
