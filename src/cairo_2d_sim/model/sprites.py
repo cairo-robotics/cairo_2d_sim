@@ -1,12 +1,13 @@
 from math import pi, atan2
 
 import rospy
+from std_msgs.msg import Header
 from geometry_msgs.msg import Pose, Pose2D
 import pygame as pg
 
 from cairo_2d_sim.display.utils import IMAGE_FILE_DIR
 from cairo_2d_sim.state.utils import offset
-from cairo_2d_sim.msg import KeyboardArrows, MousePress
+from cairo_2d_sim.msg import KeyboardArrows, MousePress, Pose2DStamped
 
 
 class HolonomicRobot(pg.sprite.Sprite):
@@ -37,17 +38,27 @@ class HolonomicRobot(pg.sprite.Sprite):
         self.keyboard_arrow_sub = rospy.Subscriber('/cairo_2d_sim/direction_commands', KeyboardArrows, self._keyboard_cb)
         self.mouse_pos_sub = rospy.Subscriber('/cairo_2d_sim/mouse_position', Pose, self._mouse_pos_cb)
         self.mouse_press_sub = rospy.Subscriber('/cairo_2d_sim/mouse_press', MousePress, self._mouse_press_cb)
-        self.state_pub = rospy.Publisher('/cairo_2d_sim/robot_state', Pose2D, queue_size=1)
+        self.state_pub = rospy.Publisher('/cairo_2d_sim/robot_state', Pose2DStamped, queue_size=1)
+        self.robot_state_replay_sub = rospy.Subscriber('/cairo_2d_sim/robot_state_replay', Pose2DStamped, self._update_robot_state_cb)
+    
+    def replay(self):
+        self._update_points()
     
     def update(self):
         self._update_xy()
-        self._update_yaw()
+        if self.left_click:
+            self._update_yaw()
         self._update_points()
+        header = Header()
+        header.stamp = rospy.Time.now()
         pose2d = Pose2D()
         pose2d.x = self.x_pos
         pose2d.y = self.y_pos
         pose2d.theta = self.yaw
-        self.state_pub.publish(pose2d)
+        pose2dstamped = Pose2DStamped()
+        pose2dstamped.header = header
+        pose2dstamped.pose2d = pose2d
+        self.state_pub.publish(pose2dstamped)
     
     def render(self, screen):
         rotimage = pg.transform.rotate(self.image, self.yaw)
@@ -62,8 +73,7 @@ class HolonomicRobot(pg.sprite.Sprite):
         self.y_pos += self.dy
     
     def _update_yaw(self):
-        if self.left_click:
-            self.yaw = self.new_yaw
+        self.yaw = self.new_yaw
     
     def _update_points(self):
         if self.points_count % 10 == 0:
@@ -95,3 +105,8 @@ class HolonomicRobot(pg.sprite.Sprite):
     
     def _mouse_press_cb(self, msg):
         self.left_click = msg.left.data
+    
+    def _update_robot_state_cb(self, msg):
+        self.x_pos = msg.pose2d.x
+        self.y_pos = msg.pose2d.y
+        self.yaw = msg.pose2d.theta

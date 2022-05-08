@@ -4,10 +4,9 @@ import copy
 import uuid
 
 import rospy
-from geometry_msgs.msg import Pose2D
 from std_msgs.msg import Bool
 
-from cairo_2d_sim.msg import MenuCommands
+from cairo_2d_sim.msg import MenuCommands, Pose2DStamped
 
 CURRENT_WORKING_DIRECTORY = os.getcwd()
 
@@ -15,7 +14,7 @@ class Record:
     
     def __init__(self):
         self.demonstration = []
-        self.robot_state_sub = rospy.Subscriber('/cairo_2d_sim/robot_state', Pose2D, self.robot_state_cb)
+        self.robot_state_sub = rospy.Subscriber('/cairo_2d_sim/robot_state', Pose2DStamped, self.robot_state_cb)
         self.constraint_one = rospy.Subscriber('/cairo_2d_sim/constraint_one', Bool, self.constraint_one_cb)
         self.constraint_two = rospy.Subscriber('/cairo_2d_sim/constraint_two', Bool, self.constraint_two_cb)
         self.constraint_three = rospy.Subscriber('/cairo_2d_sim/constraint_three', Bool, self.constraint_three_cb)
@@ -33,9 +32,10 @@ class Record:
         }
     
     def robot_state_cb(self, msg):
-        self.curr_robot_state['x'] = msg.x
-        self.curr_robot_state['y'] = msg.y
-        self.curr_robot_state['theta'] = msg.theta
+        self.curr_robot_state['time'] = msg.header.stamp.to_sec()
+        self.curr_robot_state['x'] = msg.pose2d.x
+        self.curr_robot_state['y'] = msg.pose2d.y
+        self.curr_robot_state['theta'] = msg.pose2d.theta
         
     def constraint_one_cb(self, msg):
         self.curr_constraints['c1'] = msg.data
@@ -54,11 +54,12 @@ class Record:
             if self.record_state['capture']:
                 self.save_demonstration()
                 self.record_state['capture'] = False
+                rospy.sleep(0.5)
             if self.record_state['quit']:
                 rospy.signal_shutdown("Quit signal received.")
                 break
+            rospy.sleep(0.01)
             # Going any faster than this rate will cause the program to save demonstrations repeatedly.
-            rospy.sleep(0.25)
     
     def observe(self):
         observation = {}
