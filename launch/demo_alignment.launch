@@ -1,0 +1,5 @@
+<launch>
+
+  <node pkg="cairo_2d_sim" name="demo_alignment" type="demo_alignment.py" output = "screen" cwd="node"/>
+
+</launch>
