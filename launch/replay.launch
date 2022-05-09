@@ -1,6 +1,6 @@
 <launch>
 
-  <node pkg="cairo_2d_sim" name="demonstrate" type="replay.py" output = "screen" cwd="node"/>
+  <node pkg="cairo_2d_sim" name="replay" type="replay.py" output = "screen" cwd="node"/>
   <node pkg="cairo_2d_sim" name="record" type="execute_trajectory.py" output = "screen" cwd="node"/>
 
 </launch>

@@ -62,10 +62,11 @@ class Record:
             # Going any faster than this rate will cause the program to save demonstrations repeatedly.
     
     def observe(self):
-        observation = {}
-        observation['robot_state'] = copy.deepcopy(self.curr_robot_state)
-        observation['constraints'] = copy.deepcopy(self.curr_constraints)
-        self.demonstration.append(observation)
+        if self.curr_robot_state != {}:
+            observation = {}
+            observation['robot_state'] = copy.deepcopy(self.curr_robot_state)
+            observation['applied_constraints'] = copy.deepcopy(self.curr_constraints)
+            self.demonstration.append(observation)
     
     def save_demonstration(self):
         filename = str(uuid.uuid4())

@@ -53,6 +53,7 @@
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>message_generation</depend>
+  <depend>cairo_lfd</depend>
 
   <depend>message_runtime</depend>
 
