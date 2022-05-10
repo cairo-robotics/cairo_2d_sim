@@ -19,7 +19,7 @@ if __name__ == '__main__':
     
     state_pub = rospy.Publisher('/cairo_2d_sim/robot_state_replay', Pose2DStamped, queue_size=1)
     
-    filepath = os.path.join(FILE_DIR, "../data/sessions/execute_trajectory/test_execute_trajectory.json")
+    filepath = os.path.join(FILE_DIR, "../data/test/execute_trajectory/test_execute_trajectory.json")
     with open(filepath) as f:
         trajectory = json.load(f)
     

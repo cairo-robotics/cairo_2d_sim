@@ -64,7 +64,7 @@ class Record:
     def observe(self):
         if self.curr_robot_state != {}:
             observation = {}
-            observation['robot_state'] = copy.deepcopy(self.curr_robot_state)
+            observation['robot'] = copy.deepcopy(self.curr_robot_state)
             observation['applied_constraints'] = copy.deepcopy(self.curr_constraints)
             self.demonstration.append(observation)
     
