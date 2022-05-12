@@ -7,9 +7,9 @@ from cairo_2d_sim.model.statics import RectangleStatic, CircleStatic
 from cairo_2d_sim.model.interface import ConstraintOneToggle, ConstraintTwoToggle, ConstraintThreeToggle
 
 def setup():
-    HEIGHT = 1800
-    WIDTH = 1000
-    screen = pg.display.set_mode((HEIGHT, WIDTH))
+    WIDTH = 1800
+    HEIGHT = 1000
+    screen = pg.display.set_mode((WIDTH, HEIGHT))
     # Start and end statically rendered
     start = CircleStatic(100, 500, 15, [0, 255, 0, 150])
     end = CircleStatic(1700, 500, 15, [0, 0, 255, 150])
@@ -37,6 +37,6 @@ def setup():
     controllers = [robot_controller, interface_controller]
     
     # Using the BasicEnvironment class for rendering the sandbox environment
-    env = BasicEnvironment(WIDTH, HEIGHT)
+    env = BasicEnvironment(HEIGHT, WIDTH)
     
     return screen, statics, toggles, sprites, controllers, env
