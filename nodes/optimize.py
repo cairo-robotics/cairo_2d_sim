@@ -16,7 +16,7 @@ from cairo_lfd.core.lfd import LfD2D
 from cairo_lfd.data.alignment import DemonstrationAlignment
 from cairo_lfd.data.labeling import DemonstrationLabler
 from cairo_lfd.data.io import load_json_files
-from cairo_2d_sim.lfd.optimization import Constraint_1_2
+from cairo_2d_sim.lfd.optimization import Constraint_1_2, Constraint_1_2_gekko
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -82,13 +82,15 @@ if __name__ == '__main__':
     waypoint_pairs = lfd.get_model_waypoints()
     pprint(waypoint_pairs)
     
-    test_keyframe_point = (408, 89)
+    test_keyframe_point = (408, 720)
     first_intersection = (400, 100)
     second_intersection = (400, 700)
-    constraint_1_2 = Constraint_1_2(first_intersection, second_intersection)
-    constraint_1_2.generate_model(test_keyframe_point)
-    description, val_x, val_y, val_a = constraint_1_2.solve()
-    print(description)
-    print(val_x, val_y)
-    print(val_a)
+    # constraint_1_2 = Constraint_1_2(first_intersection, second_intersection)
+    # constraint_1_2.generate_model(test_keyframe_point)
+    # description, val_x, val_y, val_a = constraint_1_2.solve()
+    # print(description)
+    # print(val_x, val_y)
+    # print(val_a)
     
+    constraint_1_2 = Constraint_1_2_gekko(first_intersection, second_intersection)
+    constraint_1_2.solve(test_keyframe_point)
