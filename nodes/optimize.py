@@ -82,7 +82,7 @@ if __name__ == '__main__':
     waypoint_pairs = lfd.get_model_waypoints()
     pprint(waypoint_pairs)
     
-    test_keyframe_point = (408, 720)
+    test_keyframe_point = (408, 94)
     first_intersection = (400, 100)
     second_intersection = (400, 700)
     # constraint_1_2 = Constraint_1_2(first_intersection, second_intersection)
