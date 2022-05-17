@@ -1,5 +1,6 @@
 CAIRO Lab's 2D Simulation Environment for running 2D LfD experiments.
 
+export SETUPTOOLS_USE_DISTUTILS=stdlib
 
 
 # Cairo Lab's PyGame-based 2D Sandbox
@@ -20,22 +21,26 @@ This is a repository containts interfaces to quickly build 2D interactive enviro
 ### src/cairo_2d_sim
 Location of all the source code.
 
+#### src/cairo_2d_sim
+
 ### /launch
-**/record.launch** --> A basic launch file that starts the game node and recording node in order to record 2D demonstrations.
+**/setupgame.launch** --> A basic laumch file that 
+
+
+
+### /setup_scripts
+**focal_noetic_basic_setup.bash** --> this script will prompt you to install basic software for Ubuntu 20.04 / ROS Noetic for new machine installations.
+
+**sawyer_install.sh** --> this script will help you to install all the required packages for Sawyer (and some others needed to get sawyer for noetic working properly w/ moveit and gazebo etc)
+
+### /rosinstall
+.rosinstall files for use by wstools and scripts.
 
 ---
 ## Installation <a name="installation"></a>
 
-Install locally into your src/ directory of your ROS1 workspace and build your workspace.
-
-Note: This package was built for python 3.8 or greater. As such, distutils is deprecated in favor of setuputils. As such,
-ROS will attempt to build the python package using distutils which can cause a build failure. One remedy is to prepend the 
-following on your build command in your terminal:
 
 ```
-$ export SETUPTOOLS_USE_DISTUTILS=stdlib caktin_make
-```
-
 ---
 ## FAQ and Common Issues <a name="faqs"></a>
 

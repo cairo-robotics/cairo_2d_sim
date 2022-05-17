@@ -11,7 +11,7 @@ import pygame as pg
 from cairo_2d_sim.msg import Pose2DStamped
 from cairo_2d_sim.lfd.state_space import Holonomic2DStateSpace, StateValidityChecker
 from cairo_2d_sim.planning.constraints import UnconstrainedTSR, LineConstraintTSR
-from cairo_2d_sim.planning.planners import CRRT, parametric_lerp
+from cairo_2d_sim.planning.planners import CRRT, parametric_xytheta_lerp, xytheta_distance
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -19,16 +19,17 @@ FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 if __name__ == '__main__':
     rospy.init_node("Planning publisher")
     
-    state_space = Holonomic2DStateSpace()
+    state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
     svc = StateValidityChecker()
-    interp_fn = partial(parametric_lerp, steps=10)
-    crrt = CRRT(state_space, svc, interp_fn, {'smooth_path': True, 'epsilon': .1, 'e_step': .25, 'smoothing_time': 10})
+    interp_fn = partial(parametric_xytheta_lerp, steps=10)
+    crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 250, 'e_step': .25, 'smoothing_time': 10})
     
-    start_q = [100, 100]
-    goal_q = [1200, 800]
+    start_q = [100, 100, 90]
+    goal_q = [1200, 800, 90]
     
     tsr = UnconstrainedTSR()
-    print(crrt.plan(tsr, start_q, goal_q))
+    print(crrt.get_path(crrt.plan(tsr, start_q, goal_q)))
+    
     
     
     
