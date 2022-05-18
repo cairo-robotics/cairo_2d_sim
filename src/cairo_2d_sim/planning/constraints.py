@@ -43,8 +43,22 @@ class LineConstraintTSR():
         self.epislon_error = 10
         
     def project(self, p):
-        point = np.array(p)
-        ap = self.p1 - point
-        ab = self.p2 - point
-        projected_point = point + np.dot(ap, ab) / np.dot(ab, ab) * ab
+        M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
+        t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M);
+        line_proj = self.p1[0:2] + np.dot(t0, M);
+        projected_point = []
+        if line_proj[0] < self.p1[0]:
+            projected_point.append(self.p1[0])
+        elif line_proj[0] > self.p2[0]:
+            projected_point.append(self.p2[0])
+        else:
+            projected_point.append(line_proj[0])
+        
+        if line_proj[1] < self.p1[1]:
+            projected_point.append(self.p1[1])
+        elif line_proj[1] > self.p2[1]:
+            projected_point.append(self.p2[1])
+        else:
+            projected_point.append(line_proj[1])
+        projected_point.append(p[2])
         return projected_point

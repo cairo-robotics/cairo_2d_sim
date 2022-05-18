@@ -10,47 +10,6 @@ from cairo_2d_sim.planning.constraints import project_config, val2str, name2idx
 __all__ = ['CBiRRT2']
 
 
-def parametric_xytheta_lerp(q0, q1, steps):
-    """
-    This function directly interpolates between the start q0 and q1, element-wise parametrically
-    via the discretized interval determined by the number of steps.
-
-    Args:
-        q0 (ndarray): Numpy vector representing the starting point.
-        q1 (ndarray): Numpy vector representing the ending point.
-        steps (int): Number of discrete steps to take.
-
-    Returns:
-        [ndarray]: Numpy array of the interpolation between q0 and q1.
-    """
-    times = [x / (steps - 1)
-             for x in range(0, steps)]  # % normalized time from 0 -> 1
-    C = q0[2]
-    T = q1[2]
-    d = ((T - C + 540) % 360) - 180
-    if d > 0:
-        theta_interp = np.array([np.array([abs(C + d * t) % 360]) for t in times])
-    if d < 0:
-        theta_interp = np.array([np.array([abs(C - d * t) % 360]) for t in times])
-    xy_interp = np.array([t*(q1[:2]-q0[:2]) + q0[:2] for t in times])
-    np.concatenate((xy_interp, theta_interp), axis=1)
-    return 
-
-def xytheta_distance(q0, q1):
-    """
-    
-
-    Args:
-        q0 (ndarray): Numpy vector representing the starting point.
-        q1 (ndarray): Numpy vector representing the ending point.
-
-    Returns:
-        [ndarray]: Numpy array of the interpolation between q0 and q1.
-    """
-    euclid_distance = abs(np.linalg.norm(np.array(q0[:2]) - np.array(q1[0:2])))
-    theta_diff = q0[2] - q1[2]
-    theta_delta = abs((theta_diff + 180) % 360 - 180)
-    return euclid_distance + theta_delta
 
 class CRRT():
 
@@ -62,9 +21,10 @@ class CRRT():
         self.interp_fn = interpolation_fn
         self.distance_fn = distance_fn
         self.smooth_path = params.get('smooth_path', False)
-        self.epsilon = params.get('epsilon', 250)
+        self.epsilon = params.get('epsilon', 10)
+        self.extension_distance = 50
         self.smoothing_time = params.get('smoothing_time', 10)
-        self.iters = 5000
+        self.iters = 100000
     
     def plan(self, tsr, start_q, goal_q):
         """ 
@@ -104,7 +64,6 @@ class CRRT():
                 self._add_vertex(self.tree, q_proj)
                 # print(q_near, q_proj)
                 # print(self._distance(q_near, q_proj))
-                print(self._distance(q_proj, self.goal_q))
                 self._add_edge(self.tree, q_near, q_proj, self._distance(q_near, q_proj))
             if q_proj is not None and self._equal(q_proj, self.goal_q):
                 self._add_vertex(self.tree, self.goal_q)
@@ -118,25 +77,26 @@ class CRRT():
     
     def _constrained_extend(self, tsr, q_near, q_target):
         q_proj = self._constrain_config(q_candidate=q_target, tsr=tsr)
-        if self._distance(q_proj, self.goal_q) < 2 * self._distance(q_near, self.goal_q):
-            return q_proj
-        else:
+        v1 = q_proj[0] - q_near[0]
+        v2 = q_proj[1] - q_near[1]
+        v_norm = (v1**2 + v2**2)**.5
+        if v_norm == 0:
             return None
+        return [q_near[0] + self.extension_distance * v1/v_norm, q_near[1] + self.extension_distance * v2/v_norm, q_proj[2]]
+        
             
     def _constrain_config(self, q_candidate, tsr):
         # these functions can be very problem specific. For now we'll just assume the most very basic form.
         # futre implementations might favor injecting the constrain_config function 
         return project_config(tsr, q_candidate)
-        
+    
 
     def _extract_graph_path(self, tree=None, from_idx=None, to_idx=None):
         if tree is None:
             tree = self.tree
         if from_idx is None or to_idx is None:
             from_idx = name2idx(tree, self.start_name)
-            print(from_idx)
             to_idx = name2idx(tree, self.goal_name)
-            print(to_idx)
         if 'weight' in tree.es.attributes():
             return tree.get_shortest_paths(from_idx, to_idx, weights='weight', mode='ALL')[0]
         else:
