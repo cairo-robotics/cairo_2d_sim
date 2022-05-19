@@ -24,12 +24,12 @@ if __name__ == '__main__':
     state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
     svc = StateValidityChecker()
     interp_fn = partial(parametric_xytheta_lerp, steps=10)
-    crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 50, 'e_step': .25, 'extension_distance': 50, 'smoothing_time': 10})
+    crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 200, 'e_step': .25, 'smoothing_time': 10})
     
     start_q = [405, 100, 277.67]
     goal_q = [405, 800, 225.20]
     
-    tsr = UnconstrainedTSR()
+    tsr = LineConstraintTSR([405, 100], [1200, 100])
     path_points = crrt.get_path(crrt.plan(tsr, start_q, goal_q))
     
     print(path_points)

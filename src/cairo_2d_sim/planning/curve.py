@@ -1,6 +1,22 @@
 
 import numpy as np
 
+
+def cumulative_distance(local_path):
+    """
+    Calculates the cumulative euclidean distnace sum of a sequence of vectors.
+    The distance between each consecutive point is calculated and summed. 
+
+    Args:
+        local_path (float): Numpy array of vectors representing a local path.
+    
+    Returns:
+        int: The cumulative euclidean distance.
+    """
+    distance = np.sum(np.sqrt(np.sum(np.diff(local_path, axis=0)**2,1)))
+    return distance
+
+
 def minjerk_coefficients(points_array, duration_array=None):
      """
      Compute the min-jerk coefficients for a given set for user-supplied control pts
