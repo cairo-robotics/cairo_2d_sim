@@ -126,7 +126,7 @@ class CRRT():
    
 
     def _equal(self, q1, q2):
-        if self._distance(q1, q2) <= self.epsilon:
+        if self._distance(q1, q2) <= self.epsilon[0] and :
             return True
         return False
 
