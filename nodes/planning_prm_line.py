@@ -10,8 +10,8 @@ import pygame as pg
 
 from cairo_2d_sim.msg import Pose2DStamped
 from cairo_2d_sim.lfd.state_space import Holonomic2DStateSpace, StateValidityChecker
-from cairo_2d_sim.planning.constraints import UnconstrainedTreeTSR, LineConstraintTreeTSR, LineTargetingConstraintTreeTSR
-from cairo_2d_sim.planning.planners import CRRT
+from cairo_2d_sim.planning.constraints import UnconstrainedPRMTSR, LineConstraintPRMTSR, LineTargetingConstraintPRMTSR
+from cairo_2d_sim.planning.planners import PRM
 from cairo_2d_sim.planning.curve import JointTrajectoryCurve, xytheta_distance, parametric_xytheta_lerp
 
 
@@ -24,13 +24,13 @@ if __name__ == '__main__':
     state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
     svc = StateValidityChecker()
     interp_fn = partial(parametric_xytheta_lerp, steps=10)
-    crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': (50, 10), 'e_step': .25, 'smoothing_time': 10})
+    prm = PRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 35, 'n_samples': 12000, 'k': 10})
     
     start_q = [405, 100, 277.67]
-    goal_q = [405, 800, 225.20]
+    goal_q = [1200, 100, 225.20]
     
-    tsr = LineTargetingConstraintTreeTSR([405, 100], [1200, 100], [805, 500])
-    path_points = crrt.get_path(crrt.plan(tsr, start_q, goal_q))
+    tsr = LineConstraintPRMTSR([405, 100], [1200, 100])
+    path_points = prm.get_path(prm.plan(tsr, start_q, goal_q))
     
     print(path_points)
     for point in path_points:

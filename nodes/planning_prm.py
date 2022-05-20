@@ -24,10 +24,10 @@ if __name__ == '__main__':
     state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
     svc = StateValidityChecker()
     interp_fn = partial(parametric_xytheta_lerp, steps=10)
-    prm = PRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 10, 'e_step': .25, 'extension_distance': 10, 'smoothing_time': 10})
+    prm = PRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 35, 'n_samples': 12000, 'k': 10})
     
     start_q = [405, 100, 277.67]
-    goal_q = [405, 800, 225.20]
+    goal_q = [800, 800, 225.20]
     
     tsr = UnconstrainedPRMTSR()
     path_points = prm.get_path(prm.plan(tsr, start_q, goal_q))
