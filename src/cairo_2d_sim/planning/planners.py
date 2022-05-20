@@ -158,7 +158,7 @@ class PRM():
         self.distance_fn = distance_fn
         self.n_samples = params.get('n_samples', 4000)
         self.k = params.get('k', 5)
-        self.ball_radius = params.get('ball_radius', .55)
+        self.ball_radius = params.get('ball_radius', 25)
         print("N: {}, k: {}, r: {}".format(
             self.n_samples, self.k, self.ball_radius))
 
@@ -249,6 +249,7 @@ class PRM():
                     count += 1
                     # sampling_times.append(timer() - start_time)
             # print(sum(sampling_times) / len(sampling_times))
+        print(valid_samples)
         return valid_samples
 
     def _generate_connections(self, samples):
@@ -317,7 +318,7 @@ class PRM():
         else:
             return False, []
 
-    def _neighbors(self, sample, k_override=None, within_ball=False):
+    def _neighbors(self, sample, k_override=None, within_ball=True):
         if k_override is not None:
             k = k_override
         else:
