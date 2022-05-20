@@ -2,7 +2,7 @@
 import numpy as np
 
 
-def cumulative_distance(local_path):
+def cumulative_distance(local_path, distance_fn):
     """
     Calculates the cumulative euclidean distnace sum of a sequence of vectors.
     The distance between each consecutive point is calculated and summed. 
@@ -13,8 +13,10 @@ def cumulative_distance(local_path):
     Returns:
         int: The cumulative euclidean distance.
     """
-    distance = np.sum(np.sqrt(np.sum(np.diff(local_path, axis=0)**2,1)))
-    return distance
+    cumulative_dist = 0
+    for first, second in zip(local_path, local_path[1:]):
+        cumulative_dist += distance_fn(first, second)
+    return cumulative_dist
 
 
 def minjerk_coefficients(points_array, duration_array=None):
@@ -217,6 +219,8 @@ def parametric_xytheta_lerp(q0, q1, steps):
         theta_interp = np.array([np.array([abs(C + d * t) % 360]) for t in times])
     if d < 0:
         theta_interp = np.array([np.array([abs(C - d * t) % 360]) for t in times])
+    if d == 0:
+        theta_interp = np.array(np.array([[C] for _ in times]))
     xy_interp = np.array([t*(q1[:2]-q0[:2]) + q0[:2] for t in times])
     return  np.concatenate((xy_interp, theta_interp), axis=1)
 

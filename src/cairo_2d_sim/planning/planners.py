@@ -126,7 +126,7 @@ class CRRT():
    
 
     def _equal(self, q1, q2):
-        if self._distance(q1, q2) <= self.epsilon[0] and :
+        if self.distance_fn(q1, q2) <= self.epsilon:
             return True
         return False
 
@@ -150,23 +150,24 @@ class CRRT():
     
 
 class PRM():
-    def __init__(self, state_space, state_validity_checker, interpolation_fn, params):
+    def __init__(self, state_space, state_validity_checker, interpolation_fn, distance_fn, params):
         self.graph = ig.Graph()
         self.state_space = state_space
         self.svc = state_validity_checker
         self.interp_fn = interpolation_fn
+        self.distance_fn = distance_fn
         self.n_samples = params.get('n_samples', 4000)
         self.k = params.get('k', 5)
         self.ball_radius = params.get('ball_radius', .55)
         print("N: {}, k: {}, r: {}".format(
             self.n_samples, self.k, self.ball_radius))
 
-    def plan(self, q_start, q_goal):
+    def plan(self, tsr, q_start, q_goal):
         # Initial sampling of roadmap and NN data structure.
         print("Initializing roadmap...")
         self._init_roadmap(q_start, q_goal)
         print("Generating valid random samples...")
-        samples = self._generate_samples()
+        samples = self._generate_samples(tsr)
         # Create NN datastructure
         print("Creating NN datastructure...")
         self.nn = NearestNeighbors(X=np.array(
@@ -233,13 +234,13 @@ class PRM():
             current_plan = new_plan
         return current_plan
 
-    def _generate_samples(self):
+    def _generate_samples(self, tsr):
         # sampling_times = [0]
         count = 0
         valid_samples = []
         while count <= self.n_samples:
             # start_time = timer()
-            q_rand = self._sample()
+            q_rand = self._sample(tsr)
             if np.any(q_rand):
                 if self._validate(q_rand):
                     if count % 100 == 0:
@@ -280,14 +281,14 @@ class PRM():
         end = self.graph.vs[1]['value']
         start_added = False
         end_added = False
-        for q_near in self._neighbors(start, k_override=30, within_ball=True):
+        for q_near in self._neighbors(start, k_override=30, within_ball=False):
             if self._idx_of_point(q_near) != 0:
                 successful, local_path = self._extend(start, q_near)
                 if successful:
                     start_added = True
                     self._add_edge_to_graph(
                         start, q_near, self._weight(local_path))
-        for q_near in self._neighbors(end, k_override=30, within_ball=True):
+        for q_near in self._neighbors(end, k_override=30, within_ball=False):
             if self._idx_of_point(q_near) != 1:
                 successful, local_path = self._extend(q_near, end)
                 if successful:
@@ -316,7 +317,7 @@ class PRM():
         else:
             return False, []
 
-    def _neighbors(self, sample, k_override=None, within_ball=True):
+    def _neighbors(self, sample, k_override=None, within_ball=False):
         if k_override is not None:
             k = k_override
         else:
@@ -329,8 +330,8 @@ class PRM():
             return [neighbor for distance, neighbor in sorted(
                 list(zip(distances, neighbors)), key=lambda x: x[0]) if distance > 0]
 
-    def _sample(self):
-        return np.array(self.state_space.sample())
+    def _sample(self, tsr):
+        return np.array(tsr.project(self.state_space.sample()))
 
     def _add_edge_to_graph(self, q_near, q_sample, edge_weight):
         q_near_idx = self._idx_of_point(q_near)
@@ -341,7 +342,7 @@ class PRM():
                                 **{'weight': edge_weight})
 
     def _weight(self, local_path):
-        return cumulative_distance(local_path)
+        return cumulative_distance(local_path, self.distance_fn)
 
     def _idx_of_point(self, point):
         return self.graph.vs['value'].index(list(point))
