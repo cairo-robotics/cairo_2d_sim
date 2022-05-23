@@ -8,7 +8,7 @@ from cairo_2d_sim.planning.constraints import project_config, val2str, name2idx
 from cairo_2d_sim.planning.neighbors import NearestNeighbors
 from cairo_2d_sim.planning.curve import cumulative_distance
 
-__all__ = ['CBiRRT2']
+__all__ = ['CRRT', 'CPRM']
 
 
 
@@ -73,7 +73,9 @@ class CRRT():
             
     def reset_planner(self):
         self.start_q = None
+        self.start_name = None
         self.goal_q = None
+        self.goal_name = None
         self.tree = ig.Graph(directed=True)
     
     def _constrained_extend(self, tsr, q_near, q_target):
@@ -159,6 +161,7 @@ class PRM():
         self.n_samples = params.get('n_samples', 4000)
         self.k = params.get('k', 5)
         self.ball_radius = params.get('ball_radius', 25)
+        self.smooth = params.get('smooth_path', False)
         print("N: {}, k: {}, r: {}".format(
             self.n_samples, self.k, self.ball_radius))
 
@@ -181,13 +184,16 @@ class PRM():
         self._attach_start_and_end()
         print("Finding feasible best path in graph if available...")
         if self._success():
-            plan = self._smooth(self.best_sequence())
+            if self.smooth:
+                plan = self._smooth(self.best_sequence())
+            else:
+                plan = self.best_sequence()
             return plan
         else:
             return []
 
     def best_sequence(self):
-        return self.graph.get_shortest_paths('start', 'goal', weights='weight', mode='ALL')[0]
+        return self.graph.get_shortest_paths(self.start_name, self.goal_name, weights='weight', mode='ALL')[0]
 
     def get_path(self, plan):
         points = [self.graph.vs[idx]['value'] for idx in plan]
@@ -201,13 +207,13 @@ class PRM():
         return path
 
     def _init_roadmap(self, q_start, q_goal):
-        self.graph.add_vertex("start")
+        self.start_name = val2str(q_start)
+        self.graph.add_vertex(**{'name': self.start_name, 'value': list(q_start)})
         # Start is always at the 0 index.
-        self.graph.vs[0]["value"] = list(q_start)
-        self.graph.add_vertex("goal")
-        # Goal is always at the 1 index.
-        self.graph.vs[1]["value"] = list(q_goal)
-
+        self.goal_name = val2str(q_goal)
+        self.graph.add_vertex(**{'name': self.goal_name, 'value': list(q_goal)})
+        # Start is always at the 0 index.
+       
     def _smooth(self, plan):
         def shortcut(plan):
             idx_range = [i for i in range(0, len(plan))]
@@ -238,18 +244,17 @@ class PRM():
         # sampling_times = [0]
         count = 0
         valid_samples = []
-        while count <= self.n_samples:
+        while count < self.n_samples:
             # start_time = timer()
             q_rand = self._sample(tsr)
             if np.any(q_rand):
                 if self._validate(q_rand):
-                    if count % 100 == 0:
+                    if count % 500 == 0:
                         print("{} valid samples...".format(count))
                     valid_samples.append(q_rand)
                     count += 1
                     # sampling_times.append(timer() - start_time)
             # print(sum(sampling_times) / len(sampling_times))
-        print(valid_samples)
         return valid_samples
 
     def _generate_connections(self, samples):
@@ -266,11 +271,13 @@ class PRM():
         return connections
 
     def _build_graph(self, samples, connections):
-        values = [self.graph.vs[0]["value"],
-                  self.graph.vs[1]["value"]] + samples
-        values = [list(value) for value in values]
-        self.graph.add_vertices(len(values))
+        curr_names = self.graph.vs['name'] # we have to snag the current names and values before adding vertices
+        curr_values = self.graph.vs['value']
+        values = curr_values + [list(sample) for sample in samples]
+        names = curr_names + [val2str(sample) for sample in samples]
+        self.graph.add_vertices(len(samples)) # this will append the number of required new vertices for the new samples
         self.graph.vs["value"] = values
+        self.graph.vs["name"] = names
         edges = [(self._idx_of_point(c[0]), self._idx_of_point(c[1]))
                  for c in connections]
         weights = [c[2] for c in connections]
@@ -346,4 +353,4 @@ class PRM():
         return cumulative_distance(local_path, self.distance_fn)
 
     def _idx_of_point(self, point):
-        return self.graph.vs['value'].index(list(point))
+        return name2idx(self.graph, val2str(point))
