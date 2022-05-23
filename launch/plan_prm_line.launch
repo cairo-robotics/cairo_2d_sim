@@ -1,0 +1,6 @@
+<launch>
+
+    <node pkg="cairo_2d_sim" name="planning" type="planning_prm_line.py" output = "screen" cwd="node"/>
+    <node pkg="cairo_2d_sim" name="replay" type="replay.py" output = "screen" cwd="node"/>
+
+</launch>

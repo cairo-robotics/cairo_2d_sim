@@ -122,10 +122,73 @@ class Constraint_1_2_gekko():
             print('Results')
             print('x1: ' + str(X.value))
             print('x2: ' + str(Y.value))
-            print('x3: ' + str(A.value))
+            print('A: ' + str(A.value))
             print('Objective: ' + str(m.options.objfcnval))
             self.model.cleanup()
         except Exception as e:
             print(e)
             self.model.cleanup()
+            
+
+class Constraint_2_3_gekko():
+
+    def __init__(self, first_intersection, height=1000, width=1800):
+        self.first_intersection = first_intersection
+        self.height = height
+        self.width = width
+        self.epislon_error = 25
+        self.model = None
+
+    
+    def solve(self, keyframe_point):
+        m = GEKKO() # Initialize gekko
+        m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
+
+        # optional solver settings with APOPT
+        m.solver_options = ['minlp_maximum_iterations 50000', \
+                    # minlp iterations with integer solution
+                    'minlp_max_iter_with_int_sol 1000', \
+                    # treat minlp as nlp
+                    'minlp_as_nlp 1', \
+                    # nlp sub-problem max iterations
+                    'nlp_maximum_iterations 5000', \
+                    # 1 = depth first, 2 = breadth first
+                    'minlp_branch_method 2', \
+                    # maximum deviation from whole number
+                    'minlp_integer_tol 0.1', \
+                    # covergence tolerance
+                    'minlp_gap_tol 0.01']
+
+        # Initialize variables
+        X = m.Var(value=keyframe_point[0])
+        Y = m.Var(value=keyframe_point[1])
+
+        # Distance equations
+
+        distance_from_intersection = A * ((X - self.first_intersection[0])**2 +
+             (Y - self.first_intersection[1])**2)**0.5
+
+        distance_from_keyframe_point = (
+            (X - keyframe_point[0])**2 + (Y - keyframe_point[1])**2)**0.5
+        
+        m.Equation(X <= self.width)
+        m.Equation(X >= 0)
+        m.Equation(Y <= self.height)
+        m.Equation(Y >= 0)
+        m.Equation(distance_from_intersection <= self.epislon_error)
+        
+        m.Obj(distance_from_intersection + distance_from_keyframe_point)
+        self.model = m 
+        try:
+            self.model.solve(disp=False, debug=True)
+            print('Results')
+            print('x1: ' + str(X.value))
+            print('x2: ' + str(Y.value))
+            print('Objective: ' + str(m.options.objfcnval))
+            self.model.cleanup()
+        except Exception as e:
+            print(e)
+            self.model.cleanup()
+
+
 
