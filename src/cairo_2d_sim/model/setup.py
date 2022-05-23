@@ -29,7 +29,7 @@ def setup():
     toggles = [ct1, ct2, ct3]
     
     # The only sprite will be the Holonomic Robot
-    sprite_1 = HolonomicRobot(400, 100, 277.67)
+    sprite_1 = HolonomicRobot(405, 100, 314)
     sprites = [sprite_1]
     
     # A single holonomic controller and basic interface controller for toggling constraints

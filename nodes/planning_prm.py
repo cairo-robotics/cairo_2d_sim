@@ -21,13 +21,13 @@ FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 if __name__ == '__main__':
     rospy.init_node("Planning publisher")
     
-    state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
-    svc = StateValidityChecker()
-    interp_fn = partial(parametric_xytheta_lerp, steps=10)
-    prm = PRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 35, 'n_samples': 12000, 'k': 10})
+    start_q = [405, 100, 277.72]
+    goal_q = [800, 100, 225.20]
     
-    start_q = [405, 100, 277.67]
-    goal_q = [800, 800, 225.20]
+    state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
+    svc = StateValidityChecker(start_q, goal_q)
+    interp_fn = partial(parametric_xytheta_lerp, steps=10)
+    prm = PRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': True, 'ball_radius': 50, 'n_samples': 12000, 'k': 15})
     
     tsr = UnconstrainedPRMTSR()
     path_points = prm.get_path(prm.plan(tsr, start_q, goal_q))

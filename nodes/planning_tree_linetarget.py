@@ -21,15 +21,15 @@ FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 if __name__ == '__main__':
     rospy.init_node("Planning publisher")
     
-    state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
-    svc = StateValidityChecker()
-    interp_fn = partial(parametric_xytheta_lerp, steps=10)
-    crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': (50, 10), 'e_step': .25, 'smoothing_time': 10})
-    
     start_q = [405, 100, 277.67]
     goal_q = [405, 800, 225.20]
     
+    state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
+    svc = StateValidityChecker(start_q, goal_q)
+    interp_fn = partial(parametric_xytheta_lerp, steps=10)
+    crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': (50, 10), 'e_step': .25, 'smoothing_time': 10})
     tsr = LineTargetingConstraintTreeTSR([405, 100], [1200, 100], [805, 500])
+    
     path_points = crrt.get_path(crrt.plan(tsr, start_q, goal_q))
     
     print(path_points)
