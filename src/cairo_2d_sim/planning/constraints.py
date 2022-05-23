@@ -207,4 +207,4 @@ class LineTargetingConstraintPRMTSR():
         return projected_point
     
     def _theta_projection(self, p):
-        return 360 - atan2(self.target[0] - p[1], self.target[1] - p[0]) * 180 / pi
+        return 360 - atan2(self.target[1] - p[1], self.target[0] - p[0]) * 180 / pi
