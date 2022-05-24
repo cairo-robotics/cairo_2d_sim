@@ -2,6 +2,7 @@
 import os
 import json
 import os
+from functools import partial
 from pprint import pprint
 
 from std_msgs.msg import Header
@@ -9,8 +10,12 @@ from geometry_msgs.msg import  Pose2D
 import rospy
 import networkx as nx
 
-from cairo_2d_sim.lfd.optimization import  DualIntersectionOptimization, SingleIntersection
+from cairo_2d_sim.planning.distribution import KernelDensityDistribution
+from cairo_2d_sim.planning.optimization import  DualIntersectionOptimization, SingleIntersection
 from cairo_2d_sim.planning.constraints import UnconstrainedPRMTSR, LineConstraintPRMTSR, LineTargetingConstraintPRMTSR
+from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, Holonomic2DBiasedStateSpace, StateValidityChecker
+from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_lerp
+from cairo_2d_sim.planning.planners import CPRM
 from cairo_2d_sim.msg import Pose2DStamped
 
 from cairo_lfd.core.environment import SimpleObservation, Demonstration
@@ -35,10 +40,34 @@ def demo_vectorizor(demonstrations):
 def observation_xytheta_vectorizor(ob):
     return [ob.data['robot']['x'], ob.data['robot']['y'], ob.data['robot']['theta']]
 
-
+def extract_constraint_map_key(orderd_constraint_dict):
+    constraint_key = []
+    for key in orderd_constraint_dict.keys():
+        if orderd_constraint_dict['c1'] is True:
+            constraint_key.append(1)
+        if orderd_constraint_dict['c2'] is True:
+            constraint_key.append(2)
+        if orderd_constraint_dict['c3'] is True:
+            constraint_key.append(3)
+    return tuple(set(constraint_key))
+            
 
 if __name__ == '__main__':
     rospy.init_node("optimization_node")
+        
+    #############
+    # CONSTANTS #
+    #############
+    
+    X_DOMAIN = [0, 1800]
+    Y_DOMAIN = [0, 1000]
+    THETA_DOMAIN = [0, 360]
+    
+
+    
+    
+    
+    
     ##################################
     # TSR's for each line Constraint #
     ##################################
@@ -56,6 +85,8 @@ if __name__ == '__main__':
     optimization_map[(2, 3)] = SingleIntersection((1205, 100))
     
     
+    #################################################
+    #         BUILD THE KEYFRAME MODEL              #
     #################################################
     # Import demonstration data and build the model #
     #################################################
@@ -86,22 +117,11 @@ if __name__ == '__main__':
     
     lfd = LfD2D(observation_xytheta_vectorizor)
     lfd.build_keyframe_graph(labeled_initial_demos, .05)
-    keyframe_data = {'keyframes': {}}
-    for cur_node in lfd.G.get_keyframe_sequence():
-            keyframe_data['keyframes'][cur_node] = {}
-            keyframe_data['keyframes'][cur_node]['applied_constraints'] = lfd.G.nodes[cur_node]["applied_constraints"]
-            keyframe_data['keyframes'][cur_node]['observations'] = [
-                obsv.data for obsv in lfd.G.nodes[cur_node]["observations"]]
-            keyframe_data['keyframes'][cur_node]['keyframe_type'] = lfd.G.nodes[cur_node]["keyframe_type"]
-    for keyframe_id in keyframe_data['keyframes']:
-        if keyframe_data['keyframes'][keyframe_id]["keyframe_type"] == "constraint_transition":
-            pprint(keyframe_data['keyframes'][keyframe_id]['applied_constraints'])
-            
-            # Map applied constraint to TSR
-            # if the transition has a known intersection / more than one constraint use the optimization, else default to sampling / steering point a keyframe point by projecting using the associated TSR
-            # make biasing data from observations
-            
-            
+    
+    # The intemediate trajectory data is used to bias planning of segments between cosntraint intersection points.
+    intermediate_trajectories = {key: [[o.data for o in segment] for segment in group]
+                                             for key, group in lfd.G.graph['intermediate_trajectories'].items()}
+                
     ##############################################
     #          CREATE A PLANNING GRAPH          #
     #############################################
@@ -115,160 +135,39 @@ if __name__ == '__main__':
     planning_G = nx.Graph()
     
     # The start configuration. 
-    start = [(405, 500, 360)]
-
-
-    # # Starting and ending keyframe ids
-    # start_keyframe_id = list(keyframes.keys())[0]
-    # end_keyframe_id = list(keyframes.keys())[-1]
-
-    # ###############################################################################
-    # # Insert last keyframe into planning graph before looping over keyframe model #
-    # ###############################################################################
+    start = (405, 500, 360)
+    # Create a starting node for the planning graph.
+    planning_G.add_nodes_from([(0, {"waypoint": start, "tsr": c2tsr_map[(1,)]})])
     
-    # # We will build a keyframe dsitribution using KDE from which to sample for steering points / viapoints. 
-    # end_data = [obsv['robot']['joint_angle'] for obsv in keyframes[end_keyframe_id]["observations"]]
-    # keyframe_dist = KernelDensityDistribution(bandwidth=.05)
-    # keyframe_dist.fit(end_data)
-    # keyframe_space = DistributionSpace(sampler=DistributionSampler(keyframe_dist, fraction_uniform=0), limits=limits)
-    # # we cast the keyframe ids to int for networkx node dereferencing as keyframe ids are output as strings from CAIRO LfD 
-    # planning_G.add_nodes_from([int(end_keyframe_id)], keyframe_space=keyframe_space)
-
-    # # get the constraint IDs
-    # constraint_ids = keyframes[end_keyframe_id]["applied_constraints"]
-    # foliation_constraint_ids = list(set(keyframes[end_keyframe_id]["applied_constraints"] + keyframes[list(keyframes.keys())[-2]]["applied_constraints"]))
-    # planning_G.nodes[int(end_keyframe_id)]["constraint_ids"] = constraint_ids
-    
-    # # get the foliation model
-    # foliation_model = c2f_map.get(tuple(sorted(foliation_constraint_ids)), None)
-    
-    # # there's a possibility that the ending keyframe is not constrained and thus might not provide a foliation model to use
-    # if foliation_model is not None:
-    #     planning_G.nodes[int(end_keyframe_id)]["foliation_model"] = foliation_model
-
-    #     # Determine the foliation choice based on the keyframe data and assign in to the planning graph node
-    #     # Winner takes all essentially chooses the most common foliation value base on classifying each data point
-    #     foliation_value = winner_takes_all(data, foliation_model)
-    #     upcoming_foliation_value = foliation_value
-    
-    #     planning_G.nodes[int(end_keyframe_id)]["foliation_value"] = foliation_value
-    # else:
-    #     upcoming_foliation_value = None
-
-    # # Get the TSR configurations so they can be appended to the  associated with constraint ID combo.
-    # planning_G.nodes[int(end_keyframe_id)]['tsr'] = c2tsr_map.get(tuple(sorted(constraint_ids)), unconstrained_TSR)
-    
-    # # the end id will be the first upcoming ID
-    # upcoming_id = int(end_keyframe_id)
-        
-        
-    # ############################################################################
-    # # Reverse iteration over the keyframe model to populate our planning graph #
-    # ############################################################################
-    
-    # reversed_keyframes = list(reversed(keyframes.items()))[1:]
-    
-    # # used to keep track of sequence of constraint transition, start, and end keyframe ids as
-    # # not all keyframes in the lfd model will be used
-    # keyframe_planning_order = []
-    # keyframe_planning_order.insert(0, int(end_keyframe_id))
-    
-    # # iteration over the list of keyframes in reverse order ecluding the last keyframe ID which has been handled above
-    # for idx, item in enumerate(reversed_keyframes):
-    #     keyframe_id = int(item[0])
-    #     keyframe_data = item[1]
-    #     # We only use constraint transition, start, and end keyframes (which has already been accounted for above).
-    #     if keyframe_data["keyframe_type"] == "constraint_transition" or keyframe_id == int(start_keyframe_id):
-            
-    #         # We keep track of the sequence of keyframe ids in order to established a static ordering of keyframe pairs to plan between
-    #         keyframe_planning_order.insert(0, keyframe_id)
-
-    #         # Copy the base planning config. This will be updated with specfic configurations for this planning segment (tsrs, biasing etc,.)
-    #         planning_config = copy.deepcopy(base_config)
-
-    #         # Create KDE distrubtion for the current keyframe.
-    #         data = [obsv['robot']['joint_angle'] for obsv in keyframe_data["observations"]]
-    #         keyframe_dist = KernelDensityDistribution(bandwidth=.05)
-    #         keyframe_dist.fit(data)
-    #         # We want to fully bias sampling from keyframe distributions.
-    #         keyframe_space = DistributionSpace(sampler=DistributionSampler(keyframe_dist, fraction_uniform=0), limits=limits)
-
-    #         # Let's create the node and add teh keyframe KDE model as a planning space.
-    #         planning_G.add_nodes_from([keyframe_id], keyframe_space=keyframe_space)
-
-    #         # get the constraint IDs
-    #         constraint_ids = keyframe_data["applied_constraints"]
-            
-    #         # The foliation constraint ids combines both start and end keyframes of the planning segment. In other words, we need to 
-    #         # ensure the start point and ending steering point are in the same foliation, so we utilize the constraints from both keyframes.
-    #         foliation_constraint_ids = list(set(keyframe_data["applied_constraints"] + keyframes[str(upcoming_id)]["applied_constraints"]))
-
-    #         planning_G.nodes[keyframe_id]["constraint_ids"] = constraint_ids
-            
-    #         # Get the TSR configurations so they can be appended to both the keyframe and the edge between associated with constraint ID combo.
-    #         planning_G.nodes[keyframe_id]['tsr'] = c2tsr_map.get(tuple(sorted(constraint_ids)), unconstrained_TSR)
-    #         planning_config['tsr'] = c2tsr_map.get(tuple(sorted(constraint_ids)), unconstrained_TSR)
-            
-    #         # get the foliation model
-    #         foliation_model = c2f_map.get(tuple(sorted(foliation_constraint_ids)), None)
-    #         if foliation_model is not None:
-    #             # Assign the foliation model to the planning graph node for the current keyframe.
-    #             planning_G.nodes[keyframe_id]["foliation_model"] = foliation_model
-    #             # Determine the foliation choice based on the keyframe data and assign in to the Pg node
-    #             foliation_value = winner_takes_all(data, foliation_model)
-    #             # We want the current foliation value / component to be equivalent to the upcoming foliation value
-    #             # TODO: Integrate equivalency set information so that based on trajectories, we have some confidence if to 
-    #             # foliation values are actually from the same foliation value. 
-    #             if foliation_value != upcoming_foliation_value and upcoming_foliation_value is not None:
-    #                 print("Foliation values are not equivalent, cannot gaurantee planning feasibility but will proceed.")
-    #             planning_G.nodes[keyframe_id]["foliation_value"] = foliation_value
-    #             upcoming_foliation_value = foliation_value
-    #         # If the current keyframe doesn't have a constraint with an associated model then we dont care to hold 
-    #         # onto the upcoming foliation value any longer
-    #         else:
-    #             upcoming_foliation_value = None
-
-            
-    #         if keyframe_id != int(start_keyframe_id):
-    #             # Create intermediate trajectory ditribution configuration.
-    #             inter_trajs = intermediate_trajectories[str(keyframe_id)]
-    #             inter_trajs_data = []
-    #             for traj in inter_trajs:
-    #                 inter_trajs_data = inter_trajs_data + [obsv['robot']['joint_angle'] for obsv in traj]
-                
-    #             # this information will be used to create a biasing distribution for sampling during planning between steering points.
-    #             sampling_bias = {
-    #                 'bandwidth': .1,
-    #                 'fraction_uniform': .1,
-    #                 'data': inter_trajs_data
-    #             }
-    #             planning_config['sampling_bias'] = sampling_bias
-
-    #         planning_G.add_edge(keyframe_id, upcoming_id)
-    #         # Finally add the planning config to the planning graph edge. 
-    #         planning_G.edges[keyframe_id, upcoming_id]['config'] = planning_config
-
-    #         # update the upcoming keyframe id with the current id
-    #         upcoming_id = keyframe_id
+    prior_planning_G_vertex_id = 0
+    for cur_node in lfd.G.get_keyframe_sequence():
+        if lfd.G.nodes[cur_node]["keyframe_type"] == "constraint_transition": 
+            planning_G.add_nodes_from([(int(cur_node))])
+            # create sampling biased State Space for use by the planner using the current keyframes upcoming segment intermediate trajectory data.
+            inter_trajs = intermediate_trajectories[int(cur_node)]
+            inter_trajs_data = []
+            for traj in inter_trajs:
+                inter_trajs_data = inter_trajs_data + [[obsv['robot']['x'], obsv['robot']['xyz'], obsv['robot']['theta']]  for obsv in traj]
+            if len(inter_trajs_data) == 0:
+                state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
+            else:
+                planning_biasing_distribution = KernelDensityDistribution()
+                planning_biasing_distribution.fit(inter_trajs_data)
+                state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
+            planning_G.nodes[int(cur_node)]["state_space"] = state_space
+            # Get TSR/Optimizer for use in the segment start/endpoint loop
+            # if no optimizer exists, we simply project according to the required constraint
+            constraint_ids = extract_constraint_map_key(lfd.G.nodes[cur_node]["applied_constraints"])
  
+            planning_G.nodes[int(cur_node)]["constraint_ids"] = constraint_ids
 
-    # # Let's insert the starting point:
-    # # Copy the base planning config. This will be updated with specfic configurations for this planning segment (tsrs, biasing etc,.)
-    # planning_config = copy.deepcopy(base_config)
-    # # We populat ethe "point" attribute of the planning graph node which will indicate that we do not need to sample from this node
-    # # We also use a basic keyframe space -> TODO: is this necessary?
-    # planning_G.add_nodes_from([(0, {"point": start_configuration, "keyframe_space": SawyerConfigurationSpace(limits=limits)})])
-    # planning_G.nodes[0]['tsr'] = TSR_1_config
-    # # let's connect the starting point to the node associated with the starting keyframe
-    # planning_G.add_edge(0, int(start_keyframe_id))
-    # keyframe_planning_order.insert(0, 0)
-    # planning_config['tsr'] = TSR_1_config
-    # planning_G.nodes[int(start_keyframe_id)]['tsr'] = TSR_1_config
-    # # Add the lanning config to the planning graph edge. 
-    # planning_G.edges[0, int(start_keyframe_id)]['config'] = planning_config
-    # # A list to append path segments in order to create one continuous path
-    # final_path = []
-    
+            
+    # The goal configuration. 
+    goal = [(405, 500, 360)]
+    # Create a starting node for the planning graph.
+    planning_G.add_nodes_from([(cur_node + 1, {"waypoint": goal})])
+
+       
     # ###################################################
     # #           SEQUENTIAL MANIFOLD PLANNING          #
     # ###################################################
@@ -277,6 +176,12 @@ if __name__ == '__main__':
     # # problem. We perform IPD relaxation and actual   #
     # # planning.                                       #
     # ###################################################
+    # create a planner
+    # interp_fn = partial(parametric_xytheta_lerp, steps=10)
+    # planner = CPRM(state_space, StateValidityChecker(), interp_fn, xytheta_distance, {'smooth_path': True, 'ball_radius': 50, 'n_samples': 12000, 'k': 15})
+    # planning_G.nodes[int(cur_node)]["planner"] = constraint_ids
+
+    
     
     # # Here we use the keyframe planning order, creating a sequential pairing of keyframe ids.
     # for edge in list(zip(keyframe_planning_order, keyframe_planning_order[1:])):
