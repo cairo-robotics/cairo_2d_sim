@@ -58,7 +58,7 @@ class Constraint_1_2():
         else:
             raise Exception("Call generate_model() before solve()")
 
-class Constraint_1_2_gekko():
+class DualIntersectionOptimization():
 
     def __init__(self, first_intersection, second_intersection, height=1000, width=1800):
         self.first_intersection = first_intersection
@@ -130,10 +130,10 @@ class Constraint_1_2_gekko():
             self.model.cleanup()
             
 
-class Constraint_2_3_gekko():
+class SingleIntersection():
 
-    def __init__(self, first_intersection, height=1000, width=1800):
-        self.first_intersection = first_intersection
+    def __init__(self, intersection, height=1000, width=1800):
+        self.intersection = intersection
         self.height = height
         self.width = width
         self.epislon_error = 25

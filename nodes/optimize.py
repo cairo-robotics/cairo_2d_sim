@@ -8,7 +8,7 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import  Pose2D
 import rospy
 
-from cairo_2d_sim.lfd.optimization import Constraint_1_2
+from cairo_2d_sim.lfd.optimization import DualIntersectionOptimization
 from cairo_2d_sim.msg import Pose2DStamped
 
 from cairo_lfd.core.environment import SimpleObservation, Demonstration
@@ -16,7 +16,7 @@ from cairo_lfd.core.lfd import LfD2D
 from cairo_lfd.data.alignment import DemonstrationAlignment
 from cairo_lfd.data.labeling import DemonstrationLabler
 from cairo_lfd.data.io import load_json_files
-from cairo_2d_sim.lfd.optimization import Constraint_1_2, Constraint_1_2_gekko
+
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -92,5 +92,5 @@ if __name__ == '__main__':
     # print(val_x, val_y)
     # print(val_a)
     
-    constraint_1_2 = Constraint_1_2_gekko(first_intersection, second_intersection)
+    constraint_1_2 = DualIntersectionOptimization(first_intersection, second_intersection)
     constraint_1_2.solve(test_keyframe_point)

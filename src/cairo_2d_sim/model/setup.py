@@ -13,7 +13,7 @@ def setup():
     # Start and end statically rendered
     start = CircleStatic(405, 500, 15, [0, 255, 0, 150])
     end = CircleStatic(1205, 500, 15, [0, 0, 255, 150])
-    target = CircleStatic(805, 500, 15, [255, 250, 0, 150])
+    target = CircleStatic(805, 500, 15, [255,0, 0, 150])
     
     # Constraint Visuals as statically rendered
     constraint_1 = RectangleStatic(400, 100, 10, 800, (255, 0, 0, 100))
@@ -29,7 +29,7 @@ def setup():
     toggles = [ct1, ct2, ct3]
     
     # The only sprite will be the Holonomic Robot
-    sprite_1 = HolonomicRobot(405, 100, 314)
+    sprite_1 = HolonomicRobot(405, 500, 360)
     sprites = [sprite_1]
     
     # A single holonomic controller and basic interface controller for toggling constraints
