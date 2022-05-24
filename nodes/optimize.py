@@ -8,7 +8,7 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import  Pose2D
 import rospy
 
-from cairo_2d_sim.lfd.optimization import DualIntersectionOptimization
+from cairo_2d_sim.planning.optimization import DualIntersectionOptimization
 from cairo_2d_sim.msg import Pose2DStamped
 
 from cairo_lfd.core.environment import SimpleObservation, Demonstration

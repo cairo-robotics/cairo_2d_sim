@@ -1,5 +1,8 @@
 import random
 
+import numpy as np
+
+from cairo_2d_sim.planning.sampling import DistributionSampler
 
 class StateValidityChecker():
     
@@ -35,3 +38,17 @@ class Holonomic2DStateSpace():
         theta_rand = random.uniform(self.theta_domain[0], self.theta_domain[1])
         
         return [x_rand, y_rand, theta_rand]
+    
+
+class Holonomic2DBiasedStateSpace():
+    
+    def __init__(self, distribution_model, x_domain, y_domain, theta_domain=(0, 360), ):
+        self.x_domain = x_domain
+        self.y_domain = y_domain
+        self.theta_domain = theta_domain
+        self.sampler = DistributionSampler(distribution_model)
+            
+    def sample(self):
+        return self.sampler.sample([self.x_domain, self.y_domain, self.theta_domain])
+    
+    

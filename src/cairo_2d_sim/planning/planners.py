@@ -151,7 +151,7 @@ class CRRT():
         return self.distance_fn(q1, q2)
     
 
-class PRM():
+class CPRM():
     def __init__(self, state_space, state_validity_checker, interpolation_fn, distance_fn, params):
         self.graph = ig.Graph()
         self.state_space = state_space
