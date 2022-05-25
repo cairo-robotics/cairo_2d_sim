@@ -137,8 +137,7 @@ if __name__ == '__main__':
     # The start configuration. 
     start = (405, 500, 360)
     # Create a starting node for the planning graph.
-    planning_G.add_nodes_from([(0, {"waypoint": start, "tsr": c2tsr_map[(1,)]})])
-    
+    planning_G.add_nodes_from([("start", {"waypoint": start, "tsr": c2tsr_map[(1,)]})])
     prior_planning_G_vertex_id = 0
     for cur_node in lfd.G.get_keyframe_sequence():
         if lfd.G.nodes[cur_node]["keyframe_type"] == "constraint_transition": 
@@ -147,7 +146,7 @@ if __name__ == '__main__':
             inter_trajs = intermediate_trajectories[int(cur_node)]
             inter_trajs_data = []
             for traj in inter_trajs:
-                inter_trajs_data = inter_trajs_data + [[obsv['robot']['x'], obsv['robot']['xyz'], obsv['robot']['theta']]  for obsv in traj]
+                inter_trajs_data = inter_trajs_data + [[obsv['robot']['x'], obsv['robot']['y'], obsv['robot']['theta']]  for obsv in traj]
             if len(inter_trajs_data) == 0:
                 state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
             else:
@@ -158,15 +157,19 @@ if __name__ == '__main__':
             # Get TSR/Optimizer for use in the segment start/endpoint loop
             # if no optimizer exists, we simply project according to the required constraint
             constraint_ids = extract_constraint_map_key(lfd.G.nodes[cur_node]["applied_constraints"])
- 
             planning_G.nodes[int(cur_node)]["constraint_ids"] = constraint_ids
 
             
     # The goal configuration. 
     goal = [(405, 500, 360)]
-    # Create a starting node for the planning graph.
-    planning_G.add_nodes_from([(cur_node + 1, {"waypoint": goal})])
-
+    # Create a goaL node for the planning graph.
+    planning_G.add_nodes_from([("goal", {"waypoint": goal})])
+    
+    
+    planning_sequence = list(planning_G.nodes)
+    # Here we use the planning order, creating a sequential pairing of ids to create ecges.
+    for edge in list(zip(planning_sequence, planning_sequence[1:])):
+        planning_G.add_edge(edge[0], edge[1], tsr=c2tsr_map[(1,)])
        
     # ###################################################
     # #           SEQUENTIAL MANIFOLD PLANNING          #
@@ -176,31 +179,15 @@ if __name__ == '__main__':
     # # problem. We perform IPD relaxation and actual   #
     # # planning.                                       #
     # ###################################################
-    # create a planner
-    # interp_fn = partial(parametric_xytheta_lerp, steps=10)
-    # planner = CPRM(state_space, StateValidityChecker(), interp_fn, xytheta_distance, {'smooth_path': True, 'ball_radius': 50, 'n_samples': 12000, 'k': 15})
-    # planning_G.nodes[int(cur_node)]["planner"] = constraint_ids
+    
 
     
     
-    # # Here we use the keyframe planning order, creating a sequential pairing of keyframe ids.
-    # for edge in list(zip(keyframe_planning_order, keyframe_planning_order[1:])):
-    #     e1 = edge[0]
-    #     e2 = edge[1]
-    #     edge_data = planning_G.edges[e1, e2]
-    #     # lets ge the planning config from the edge or use the generic base config defined above
-    #     config = edge_data.get('config', base_config)
-        
-    #     # We create a Sim context from the config for planning. 
-    #     sim_context = SawyerBiasedSimContext(config, setup=False)
-    #     sim_context.setup(sim_overrides={"use_gui": False, "run_parallel": False})
-    #     planning_state_space = sim_context.get_state_space() # The biased state space for sampling points according to intermediate trajectories.
-    #     sim = sim_context.get_sim_instance()
-    #     logger = sim_context.get_logger()
-    #     sawyer_robot = sim_context.get_robot()
-    #     svc = sim_context.get_state_validity() # the SVC is the same for all contexts so we will use this one in our planner.
-    #     interp_fn = partial(parametric_lerp, steps=10)
-
+    # Here we use the keyframe planning order, creating a sequential pairing of keyframe ids.
+    for edge in list(zip(planning_sequence, planning_sequence[1:])):
+        e1 = edge[0]
+        e2 = edge[1]
+        # Get the TSR/Optimizer for use in the segment start/endpoint loo
     #     # Create the TSR object
     #     planning_tsr_config =  planning_G.nodes[e1].get("tsr", unconstrained_TSR)
     #     T0_w = xyzrpy2trans(planning_tsr_config['T0_w'], degrees=planning_tsr_config['degrees'])
@@ -211,13 +198,19 @@ if __name__ == '__main__':
     #     keyframe_space_e1 = planning_G.nodes[e1]['keyframe_space']
         
     #     # generate a starting point, and a steering point, according to constraints (if applicable). 
-    #     # check if the starting point has generated already:
-    #     if  planning_G.nodes[e1].get('point', None) is None:
-    #         print("Constraints {}}: {}".format(e1, planning_G.nodes[e1].get("constraint_ids", [])))
-    #         foliation_model =  planning_G.nodes[e1].get("foliation_model", None)
-    #         foliation_value =  planning_G.nodes[e1].get("foliation_value", None)
-
-    #         with DisabledCollisionsContext(sim, [], [], disable_visualization=True):
+    #     # check if the starting point for the segment has generated already:
+        if  planning_G.nodes[e1].get('waypoint', None) is None:
+            found = False
+            while not found:
+                planning_G.nodes[e1]
+                # get the TSR/Optimizer for use in the segment start/endpoint loop
+                point_optimizer = optimization_map.get(planning_G.nodes[e1]['constraint_ids'], None)
+                if point_optimizer is None:
+                    # we use the TSR projection to get the point
+                    tsr = c2tsr_map.get(planning_G.nodes[e1]['constraint_ids'], None)
+                    waypoint = tsr.project(lfd.sample)
+                else:
+                    
     #             found = False
     #             while not found:
     #                 raw_sample = keyframe_space_e1.sample()
