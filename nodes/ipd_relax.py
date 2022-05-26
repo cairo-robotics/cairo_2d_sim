@@ -270,7 +270,7 @@ if __name__ == '__main__':
         
         if len(plan) == 0:
             print("No initial plan found, ramping up number of points")
-            prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 10000, 'k': 15})
+            prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 20000, 'k': 15})
         
             plan = prm.plan(tsr, start, end)
         if len(plan) == 0:
