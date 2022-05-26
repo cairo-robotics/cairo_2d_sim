@@ -169,6 +169,9 @@ class CPRM():
         # Initial sampling of roadmap and NN data structure.
         print("Initializing roadmap...")
         self._init_roadmap(q_start, q_goal)
+        if np.linalg.norm(np.array(q_start[0:2]) - np.array(q_goal[0:2])) < 10:
+            self._add_edge_to_graph(q_start, q_goal, self.distance_fn(q_start, q_goal))
+            return self.best_sequence()
         print("Generating valid random samples...")
         samples = self._generate_samples(tsr)
         # Create NN datastructure
@@ -247,7 +250,7 @@ class CPRM():
         while count < self.n_samples:
             # start_time = timer()
             q_rand = self._sample(tsr)
-            if np.any(q_rand):
+            if q_rand is not None and np.any(q_rand):
                 if self._validate(q_rand):
                     if count % 500 == 0:
                         print("{} valid samples...".format(count))
@@ -261,11 +264,13 @@ class CPRM():
         connections = []
         for q_rand in samples:
             for q_neighbor in self._neighbors(q_rand):
-                valid, local_path = self._extend(
-                    np.array(q_rand), np.array(q_neighbor))
-                if valid:
-                    connections.append(
-                        [q_neighbor, q_rand, self._weight(local_path)])
+                # We ignore really close together points
+                if np.linalg.norm(np.array(q_neighbor[0:2]) - np.array(q_rand[0:2])) >= 5:
+                    valid, local_path = self._extend(
+                        np.array(q_rand), np.array(q_neighbor))
+                    if valid:
+                        connections.append(
+                            [q_neighbor, q_rand, self._weight(local_path)])
         print("{} connections out of {} samples".format(
             len(connections), len(samples)))
         return connections
@@ -339,7 +344,8 @@ class CPRM():
                 list(zip(distances, neighbors)), key=lambda x: x[0]) if distance > 0]
 
     def _sample(self, tsr):
-        return np.array(tsr.project(self.state_space.sample()))
+        p = self.state_space.sample()
+        return np.array(tsr.project(p))
 
     def _add_edge_to_graph(self, q_near, q_sample, edge_weight):
         q_near_idx = self._idx_of_point(q_near)

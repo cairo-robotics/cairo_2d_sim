@@ -11,7 +11,7 @@ def setup():
     HEIGHT = 1000
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     # Start and end statically rendered
-    start = CircleStatic(405, 500, 15, [0, 255, 0, 150])
+    start = CircleStatic(100, 500, 15, [0, 255, 0, 150])
     end = CircleStatic(1205, 500, 15, [0, 0, 255, 150])
     target = CircleStatic(805, 500, 15, [255,0, 0, 150])
     
@@ -29,7 +29,7 @@ def setup():
     toggles = [ct1, ct2, ct3]
     
     # The only sprite will be the Holonomic Robot
-    sprite_1 = HolonomicRobot(405, 500, 360)
+    sprite_1 = HolonomicRobot(100, 500, 360)
     sprites = [sprite_1]
     
     # A single holonomic controller and basic interface controller for toggling constraints

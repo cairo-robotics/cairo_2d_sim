@@ -11,7 +11,7 @@ import rospy
 import networkx as nx
 
 from cairo_2d_sim.planning.distribution import KernelDensityDistribution
-from cairo_2d_sim.planning.optimization import  DualIntersectionOptimization, SingleIntersection
+from cairo_2d_sim.planning.optimization import  DualIntersectionWithTargetingOptimization, SingleIntersectionWithTargetingOptimization
 from cairo_2d_sim.planning.constraints import UnconstrainedPRMTSR, LineConstraintPRMTSR, LineTargetingConstraintPRMTSR
 from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, Holonomic2DBiasedStateSpace, StateValidityChecker
 from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_lerp
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     THETA_DOMAIN = [0, 360]
     
 
-    
+    MOVE_TIME = 5
     
     
     
@@ -75,14 +75,14 @@ if __name__ == '__main__':
     c2tsr_map[()] = UnconstrainedPRMTSR()
     c2tsr_map[(1,)] = LineConstraintPRMTSR((405, 105), (405, 805))
     c2tsr_map[(2,)] = LineTargetingConstraintPRMTSR([405, 100], [1205, 100], [800, 500])
-    c2tsr_map[(3,)] = LineConstraintPRMTSR((1195, 105), (1595, 105))
+    c2tsr_map[(3,)] = LineConstraintPRMTSR((1195, 105), (1195, 505))
 
     ######################################
     # Constraint Intersection Optimizers #
     ######################################
     optimization_map = {}
-    optimization_map[(1, 2)] = DualIntersectionOptimization((405, 105), (405, 805))
-    optimization_map[(2, 3)] = SingleIntersection((1205, 100))
+    optimization_map[(1, 2)] = DualIntersectionWithTargetingOptimization((405, 105), (405, 805), (800, 500))
+    optimization_map[(2, 3)] = SingleIntersectionWithTargetingOptimization((1205, 100), (800, 500))
     
     
     #################################################
@@ -135,25 +135,14 @@ if __name__ == '__main__':
     planning_G = nx.Graph()
     
     # The start configuration. 
-    start = (405, 500, 360)
+    start = (100, 500, 360)
     # Create a starting node for the planning graph.
     planning_G.add_nodes_from([("start", {"waypoint": start, "tsr": c2tsr_map[(1,)]})])
+
     prior_planning_G_vertex_id = 0
     for cur_node in lfd.G.get_keyframe_sequence():
         if lfd.G.nodes[cur_node]["keyframe_type"] == "constraint_transition": 
             planning_G.add_nodes_from([(int(cur_node))])
-            # create sampling biased State Space for use by the planner using the current keyframes upcoming segment intermediate trajectory data.
-            inter_trajs = intermediate_trajectories[int(cur_node)]
-            inter_trajs_data = []
-            for traj in inter_trajs:
-                inter_trajs_data = inter_trajs_data + [[obsv['robot']['x'], obsv['robot']['y'], obsv['robot']['theta']]  for obsv in traj]
-            if len(inter_trajs_data) == 0:
-                state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
-            else:
-                planning_biasing_distribution = KernelDensityDistribution()
-                planning_biasing_distribution.fit(inter_trajs_data)
-                state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
-            planning_G.nodes[int(cur_node)]["state_space"] = state_space
             # Get TSR/Optimizer for use in the segment start/endpoint loop
             # if no optimizer exists, we simply project according to the required constraint
             constraint_ids = extract_constraint_map_key(lfd.G.nodes[cur_node]["applied_constraints"])
@@ -161,7 +150,7 @@ if __name__ == '__main__':
 
             
     # The goal configuration. 
-    goal = [(405, 500, 360)]
+    goal = (1205, 500, 360)
     # Create a goaL node for the planning graph.
     planning_G.add_nodes_from([("goal", {"waypoint": goal})])
     
@@ -181,195 +170,133 @@ if __name__ == '__main__':
     # ###################################################
     
 
-    
+    full_trajectory = []
     
     # Here we use the keyframe planning order, creating a sequential pairing of keyframe ids.
     for edge in list(zip(planning_sequence, planning_sequence[1:])):
         e1 = edge[0]
         e2 = edge[1]
-        # Get the TSR/Optimizer for use in the segment start/endpoint loo
-    #     # Create the TSR object
-    #     planning_tsr_config =  planning_G.nodes[e1].get("tsr", unconstrained_TSR)
-    #     T0_w = xyzrpy2trans(planning_tsr_config['T0_w'], degrees=planning_tsr_config['degrees'])
-    #     Tw_e = xyzrpy2trans(planning_tsr_config['Tw_e'], degrees=planning_tsr_config['degrees'])
-    #     Bw = bounds_matrix(planning_tsr_config['Bw'][0], planning_tsr_config['Bw'][1])
-    #     # we plan with the current edges first/starting node's tsr and planning space.
-    #     planning_tsr = TSR(T0_w=T0_w, Tw_e=Tw_e, Bw=Bw, bodyandlink=0, manipindex=16)
-    #     keyframe_space_e1 = planning_G.nodes[e1]['keyframe_space']
-        
+
+        # Generate the biasing state space for the edge:
+        # create sampling biased State Space for use by the planner using the current keyframes upcoming segment intermediate trajectory data.
+        if e1 == "start" or e1 == "goal":
+            # We don't have intermediate trajectories from these points
+            planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
+        else:
+            inter_trajs = intermediate_trajectories[int(e1)]
+            inter_trajs_data = []
+            for traj in inter_trajs:
+                inter_trajs_data = inter_trajs_data + [[obsv['robot']['x'], obsv['robot']['y'], obsv['robot']['theta']]  for obsv in traj]
+            if len(inter_trajs_data) == 0:
+                planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
+            else:
+                planning_biasing_distribution = KernelDensityDistribution()
+                planning_biasing_distribution.fit(inter_trajs_data)
+                planning_state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
+        planning_G.edges[edge]["planning_state_space"] = planning_state_space
+        planning_G.edges[edge]['planning_tsr'] = c2tsr_map.get(planning_G.nodes[e1].get('constraint_ids', None), UnconstrainedPRMTSR())
+
     #     # generate a starting point, and a steering point, according to constraints (if applicable). 
     #     # check if the starting point for the segment has generated already:
         if  planning_G.nodes[e1].get('waypoint', None) is None:
             found = False
             while not found:
                 planning_G.nodes[e1]
+                # sample a candidate point from the keyframe model
+                candidate_point = lfd.sample_from_keyframe(e1, n_samples=1)
+                
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
+                print(planning_G.nodes[e1]['constraint_ids'])
                 point_optimizer = optimization_map.get(planning_G.nodes[e1]['constraint_ids'], None)
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
                     tsr = c2tsr_map.get(planning_G.nodes[e1]['constraint_ids'], None)
-                    waypoint = tsr.project(lfd.sample)
+                    waypoint = tsr.project(candidate_point)
+                    if waypoint is not None:
+                        planning_G.nodes[e1]["waypoint"] = waypoint
+                        found = True
+                    else:
+                        continue
                 else:
-                    
-    #             found = False
-    #             while not found:
-    #                 raw_sample = keyframe_space_e1.sample()
-    #                 sample = []
-    #                 for value in raw_sample:
-    #                     sample.append(wrap_to_interval(value))
-    #                 # If the sample is already constraint compliant, no need to project. Thanks LfD!
-    #                 err, _ = distance_to_TSR_config(sawyer_robot, sample, planning_tsr)
-    #                 if err < .1 and svc.validate(sample):
-    #                     start = sample
-    #                     planning_G.nodes[e1]['point'] = start
-    #                     found = True
-    #                 elif svc.validate(sample):
-                       
-    #                     q_constrained = project_config(sawyer_robot, planning_tsr, np.array(
-    #                     sample), np.array(sample), epsilon=.025, e_step=.35, q_step=100)
-    #                     normalized_q_constrained = []
-    #                     # If there is a foliation model, then we must perform rejection sampling until the projected sample is classified 
-    #                     # to the node's foliation value
-    #                     if q_constrained is not None:
-    #                         if foliation_model is not None:
-    #                             # This is the rejection sampling step to enforce the foliation choice
-    #                             if foliation_model.predict(np.array([q_constrained])) == foliation_value:
-    #                                 for value in q_constrained:
-    #                                     normalized_q_constrained.append(
-    #                                         wrap_to_interval(value))
-    #                             else:
-    #                                 continue
-    #                         else:
-    #                             for value in q_constrained:
-    #                                 normalized_q_constrained.append(
-    #                                     wrap_to_interval(value))
-    #                     else:
-    #                         continue
-    #                     if svc.validate(normalized_q_constrained):
-    #                         start = normalized_q_constrained
-    #                         # We've generated a point so lets use it moving forward for all other planning segments. 
-    #                         planning_G.nodes[e1]['point'] = start
-    #                         found = True
-    #     # if the point steering/start point is available already, then we simply use it 
-    #     else:
-    #         start = planning_G.nodes[e1]['point']
-    #         print(start)
-
-    #     if e2 == 33 or e2 == '33':
-    #         print("Made it")
-
-    #     if  planning_G.nodes[e2].get('point', None) is None:
-    #         keyframe_space_e2 =  planning_G.nodes[e2]['keyframe_space']
-    #         tsr_config =  planning_G.nodes[e2].get("tsr", unconstrained_TSR)
-    #         T0_w2 = xyzrpy2trans(tsr_config['T0_w'], degrees=tsr_config['degrees'])
-    #         Tw_e2 = xyzrpy2trans(tsr_config['Tw_e'], degrees=tsr_config['degrees'])
-    #         Bw2 = bounds_matrix(tsr_config['Bw'][0], tsr_config['Bw'][1])
-    #         tsr = TSR(T0_w=T0_w2, Tw_e=Tw_e2, Bw=Bw2, bodyandlink=0, manipindex=16)
-            
-    #         print("Constraints {}: {}".format(e2, planning_G.nodes[e2].get("constraint_ids", [])))
-    #         foliation_model =  planning_G.nodes[e2].get("foliation_model", None)
-    #         foliation_value =  planning_G.nodes[e2].get("foliation_value", None)
-
-    #         with DisabledCollisionsContext(sim, [], [], disable_visualization=True):
-    #             found = False
-    #             while not found:
-    #                 raw_sample = keyframe_space_e2.sample()
-    #                 sample = []
-    #                 for value in raw_sample:
-    #                     sample.append(wrap_to_interval(value))
-    #                 # If the sample is already constraint compliant, no need to project. Thanks LfD!
-    #                 # print(sawyer_robot.solve_forward_kinematics(sample)[0][0], quat2rpy(sawyer_robot.solve_forward_kinematics(sample)[0][1]))
-    #                 err, _ = distance_to_TSR_config(sawyer_robot, sample, tsr)
-    #                 # print(err)
-    #                 if err < .1 and svc.validate(sample):
-    #                     end = sample
-    #                     planning_G.nodes[e2]['point'] = end
-    #                     found = True
-    #                 elif svc.validate(sample):
-    #                     # We use a large q_step since we're not using project_config for cbirrt2 but instead just trying to project as ingle point. We don't care about how far we're stepping w.r.t tree growth
-    #                     q_constrained = project_config(sawyer_robot, tsr, np.array(
-    #                     sample), np.array(sample), epsilon=.025, e_step=.25, q_step=100)
-    #                     normalized_q_constrained = []
-    #                     if q_constrained is not None:
-    #                         if foliation_model is not None:
-    #                             # This is the rejection sampling step to enforce the foliation choice
-    #                             if foliation_model.predict(np.array([q_constrained])) == foliation_value:
-    #                                 for value in q_constrained:
-    #                                     normalized_q_constrained.append(
-    #                                         wrap_to_interval(value))
-    #                             else:
-    #                                 continue
-    #                         else:
-    #                             for value in q_constrained:
-    #                                 normalized_q_constrained.append(
-    #                                     wrap_to_interval(value))
-    #                     else:
-    #                         continue
-    #                     if svc.validate(normalized_q_constrained):
-    #                         err, _ = distance_to_TSR_config(sawyer_robot, normalized_q_constrained, tsr)
-    #                         print(err)
-    #                         end = normalized_q_constrained
-    #                         # We've generated a point so lets use it moving forward for all other planning segments. 
-    #                         planning_G.nodes[e2]['point'] = end
-    #                         found = True
-    #     else:
-    #         end = planning_G.nodes[e2]['point']
-    #     print("\n\nSTART AND END\n")
-    #     print(start, end)
-    #     print(np.linalg.norm(np.array(start) - np.array(end)))
-    #     print("\n\n")
-    #     if np.linalg.norm(np.array(start) - np.array(end)) > .1:
-    #         with DisabledCollisionsContext(sim, [], [], disable_visualization=True):
-    #             ###########
-    #             # CBiRRT2 #
-    #             ###########
-    #             # Use parametric linear interpolation with 10 steps between points.
-    #             interp = partial(parametric_lerp, steps=10)
-    #             # See params for CBiRRT2 specific parameters 
-    #             cbirrt = CBiRRT2(sawyer_robot, planning_state_space, svc, interp, params={'smooth_path': True, 'smoothing_time': 5, 'epsilon': .08, 'q_step': .38, 'e_step': .25, 'iters': 20000})
-    #             logger.info("Planning....")
-    #             print("Start, end: ", start, end)
-    #             logger.info("Constraints: {}".format(planning_G.nodes[e1].get('constraint_ids', None)))
-    #             print(planning_tsr_config)
-    #             plan = cbirrt.plan(planning_tsr, np.array(start), np.array(end))
-    #             path = cbirrt.get_path(plan)
-    #         if len(path) == 0:
-    #             logger.info("Planning failed....")
-    #             sys.exit(1)
-    #         logger.info("Plan found....")
-    #     else:
-    #         # sometimes the start point is really, really close to the a keyframe so we just inerpolate, since really close points are challenging the CBiRRT2 given the growth parameters
-    #         path = [list(val) for val in interp_fn(np.array(start), np.array(end))]
-
-    #     # splining uses numpy so needs to be converted
-    #     logger.info("Length of path: {}".format(len(path)))
-    #     final_path = final_path + path
-    #     sim_context.delete_context()
-               
-   
-    # sim_context = SawyerBiasedSimContext(config, setup=False)
-    # sim_context.setup(sim_overrides={"use_gui": True, "run_parallel": False})
-    # sim = sim_context.get_sim_instance()
-    # logger = sim_context.get_logger()
-    # sawyer_robot = sim_context.get_robot()
-    # svc = sim_context.get_state_validity()
-    # interp_fn = partial(parametric_lerp, steps=10)
-    # sawyer_robot.set_joint_state(start_configuration)
-    # key = input("Press any key to excute plan.")
-
-    # # splining uses numpy so needs to be converted
-    # planning_path = [np.array(p) for p in final_path]
-    # # Create a MinJerk spline trajectory using JointTrajectoryCurve and execute
-    # jtc = JointTrajectoryCurve()
-    # traj = jtc.generate_trajectory(planning_path, move_time=20)
-    # try:
-    #     prior_time = 0
-    #     for i, point in enumerate(traj):
-    #         if not svc.validate(point[1]):
-    #             print("Invalid point: {}".format(point[1]))
-    #             continue
-    #         sawyer_robot.set_joint_state(point[1])
-    #         time.sleep(point[0] - prior_time)
-    #         prior_time = point[0]
-    # except KeyboardInterrupt:
-    #     exit(1)
+                    waypoint = point_optimizer.solve(candidate_point)
+                    if waypoint is not None:
+                        planning_G.nodes[e1]["waypoint"] = waypoint
+                        found = True
+                    else:
+                        continue
+                start = list(waypoint)
+        else:
+            start = list(planning_G.nodes[e1]['waypoint'])
+        if  planning_G.nodes[e2].get('waypoint', None) is None:
+            found = False
+            while not found:
+                planning_G.nodes[e1]
+                # sample a candidate point from the keyframe model
+                candidate_point = lfd.sample_from_keyframe(e2, n_samples=1)
+                
+                # get the TSR/Optimizer for use in the segment start/endpoint loop
+                print(planning_G.nodes[e2]['constraint_ids'])
+                point_optimizer = optimization_map.get(planning_G.nodes[e2]['constraint_ids'], None)
+                if point_optimizer is None:
+                    # we use the TSR projection to get the point
+                    tsr = c2tsr_map.get(planning_G.nodes[e2]['constraint_ids'], None)
+                    waypoint = tsr.project(candidate_point)
+                    if waypoint is not None:
+                        planning_G.nodes[e2]["waypoint"] = waypoint
+                        found = True
+                    else:
+                        continue
+                else:
+                    waypoint = point_optimizer.solve(candidate_point)
+                    if waypoint is not None:
+                        planning_G.nodes[e2]["waypoint"] = waypoint
+                        found = True
+                    else:
+                        continue
+                end = list(waypoint)
+        else:
+            end = list(planning_G.nodes[e2]['waypoint'])
+        print("\n\nSTART AND END\n")
+        print(start, end)
+        
+        # Constrained motion planning for specific manifold segment
+        state_space = planning_G.edges[edge]['planning_state_space']
+        tsr = planning_G.edges[edge]['planning_tsr']
+        print(tsr)
+        svc = StateValidityChecker(start, end)
+        interp_fn = partial(parametric_xytheta_lerp, steps=10)
+        prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 3000, 'k': 15})
+        
+        plan = prm.plan(tsr, start, end)
+        
+        if len(plan) == 0:
+            print("No initial plan found, ramping up number of points")
+            prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 10000, 'k': 15})
+        
+            plan = prm.plan(tsr, start, end)
+        if len(plan) == 0:
+            raise Exception("One segment failed to find a plan")
+        path_points = prm.get_path(plan)
+    
+        full_trajectory = full_trajectory + path_points
+        
+    timed_trajectory = list(zip([MOVE_TIME * n/len(full_trajectory) for n in range(0, len(full_trajectory))], [q[0] for q in full_trajectory], [q[1] for q in full_trajectory], [q[2] for q in full_trajectory]))
+    
+    # Execute
+        
+    state_pub = rospy.Publisher('/cairo_2d_sim/robot_state_replay', Pose2DStamped, queue_size=1)
+    
+    prior_time = timed_trajectory[0][0]
+    for point in timed_trajectory:
+        header = Header()
+        header.stamp = rospy.Time.now()
+        pose2d = Pose2D()
+        pose2d.x = point[1]
+        pose2d.y = point[2]
+        pose2d.theta = point[3]
+        pose2dstamped = Pose2DStamped()
+        pose2dstamped.header = header
+        pose2dstamped.pose2d = pose2d
+        state_pub.publish(pose2dstamped)
+        rospy.sleep(point[0] - prior_time)
+        prior_time =point[0]

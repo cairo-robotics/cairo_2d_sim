@@ -128,7 +128,7 @@ class LineTargetingConstraintTreeTSR():
         return projected_point
     
     def _theta_projection(self, p):
-        return 360 - atan2(self.target[0] - p[1], self.target[1] - p[0]) * 180 / pi
+        return 360 - atan2(self.target[1] - p[1], self.target[0] - p[0]) * 180 / pi
     
     
 class UnconstrainedPRMTSR():
@@ -144,7 +144,7 @@ class LineConstraintPRMTSR():
         self.p2 = np.array(p2)
         if np.sum((self.p1-self.p2)**2) == 0:
             raise Exception("p1 and p2 are the same points, no line exists")
-        self.epislon_error = 10
+        self.epislon_error = 25
         
     def project(self, p):
         M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
@@ -166,6 +166,8 @@ class LineConstraintPRMTSR():
             projected_point.append(line_proj[1])
        
         projected_point.append(p[2])
+        if np.linalg.norm(projected_point[0:2] - self.p1[0:2]) <= self.epislon_error or np.linalg.norm(projected_point[0:2] - self.p2[0:2]) <= self.epislon_error:
+            return None
         return projected_point
 
 class LineTargetingConstraintPRMTSR():
@@ -177,6 +179,7 @@ class LineTargetingConstraintPRMTSR():
         self.target = np.array(target)
         if np.sum((self.p1-self.p2)**2) == 0:
             raise Exception("p1 and p2 are the same points, no line exists")
+        self.epislon_error = 25
         
     def project(self, p):
        line_projection = self._line_projection(p)
@@ -204,6 +207,8 @@ class LineTargetingConstraintPRMTSR():
             projected_point.append(self.p2[1])
         else:
             projected_point.append(line_proj[1])
+        if np.linalg.norm(projected_point[0:2] - self.p1[0:2]) <= self.epislon_error or np.linalg.norm(projected_point[0:2] - self.p2[0:2]) <= self.epislon_error:
+            return None
         return projected_point
     
     def _theta_projection(self, p):
