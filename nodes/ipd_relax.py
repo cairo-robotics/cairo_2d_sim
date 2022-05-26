@@ -183,7 +183,8 @@ if __name__ == '__main__':
             # We don't have intermediate trajectories from these points
             planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
         else:
-            inter_trajs = intermediate_trajectories[int(e1)]
+            # The intermediate trajectories are index as the data the lead up to the node. So for edge e1 to e2, we use the e2 intermediate trajcewctory data. That is, the trajectory data that lead UP to e2.
+            inter_trajs = intermediate_trajectories[int(e2)]
             inter_trajs_data = []
             for traj in inter_trajs:
                 inter_trajs_data = inter_trajs_data + [[obsv['robot']['x'], obsv['robot']['y'], obsv['robot']['theta']]  for obsv in traj]
@@ -201,10 +202,9 @@ if __name__ == '__main__':
         if  planning_G.nodes[e1].get('waypoint', None) is None:
             found = False
             while not found:
-                planning_G.nodes[e1]
                 # sample a candidate point from the keyframe model
                 candidate_point = lfd.sample_from_keyframe(e1, n_samples=1)
-                
+
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
                 print(planning_G.nodes[e1]['constraint_ids'])
                 point_optimizer = optimization_map.get(planning_G.nodes[e1]['constraint_ids'], None)
@@ -230,7 +230,6 @@ if __name__ == '__main__':
         if  planning_G.nodes[e2].get('waypoint', None) is None:
             found = False
             while not found:
-                planning_G.nodes[e1]
                 # sample a candidate point from the keyframe model
                 candidate_point = lfd.sample_from_keyframe(e2, n_samples=1)
                 
