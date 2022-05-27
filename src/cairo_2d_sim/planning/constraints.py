@@ -144,28 +144,31 @@ class LineConstraintPRMTSR():
         self.p2 = np.array(p2)
         if np.sum((self.p1-self.p2)**2) == 0:
             raise Exception("p1 and p2 are the same points, no line exists")
-        self.epislon_error = 25
+        self.epislon_error = 5
         
     def project(self, p):
         M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
         t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M);
         line_proj = self.p1[0:2] + np.dot(t0, M);
         projected_point = []
-        if line_proj[0] < self.p1[0]:
-            projected_point.append(self.p1[0])
-        elif line_proj[0] > self.p2[0]:
-            projected_point.append(self.p2[0])
-        else:
-            projected_point.append(line_proj[0])
         
+        # if we project over the endpoints of x values of the line...
+        if line_proj[0] < self.p1[0]:
+            return None
+        if line_proj[0] > self.p2[0]:
+            return None
+        projected_point.append(line_proj[0])
+        
+        # ...or the endpoints of y we discard the point. 
         if line_proj[1] < self.p1[1]:
-            projected_point.append(self.p1[1])
-        elif line_proj[1] > self.p2[1]:
-            projected_point.append(self.p2[1])
-        else:
-            projected_point.append(line_proj[1])
-       
+            return None
+        if line_proj[1] > self.p2[1]:
+            return None
+
+        projected_point.append(line_proj[1])
+    
         projected_point.append(p[2])
+        
         if np.linalg.norm(projected_point[0:2] - self.p1[0:2]) <= self.epislon_error or np.linalg.norm(projected_point[0:2] - self.p2[0:2]) <= self.epislon_error:
             return None
         return projected_point
@@ -179,7 +182,7 @@ class LineTargetingConstraintPRMTSR():
         self.target = np.array(target)
         if np.sum((self.p1-self.p2)**2) == 0:
             raise Exception("p1 and p2 are the same points, no line exists")
-        self.epislon_error = 25
+        self.epislon_error = 5
         
     def project(self, p):
        line_projection = self._line_projection(p)
@@ -194,21 +197,26 @@ class LineTargetingConstraintPRMTSR():
         t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M);
         line_proj = self.p1[0:2] + np.dot(t0, M);
         projected_point = []
-        if line_proj[0] < self.p1[0]:
-            projected_point.append(self.p1[0])
-        elif line_proj[0] > self.p2[0]:
-            projected_point.append(self.p2[0])
-        else:
-            projected_point.append(line_proj[0])
         
+        # if we project over the endpoints of x values of the line...
+        if line_proj[0] < self.p1[0]:
+            return None
+        if line_proj[0] > self.p2[0]:
+            return None
+
+        projected_point.append(line_proj[0])
+            
+        # ...or the endpoints of y we discard the point. 
         if line_proj[1] < self.p1[1]:
-            projected_point.append(self.p1[1])
-        elif line_proj[1] > self.p2[1]:
-            projected_point.append(self.p2[1])
-        else:
-            projected_point.append(line_proj[1])
+            return None
+        if line_proj[1] > self.p2[1]:
+           return None
+
+        projected_point.append(line_proj[1])
+        
         if np.linalg.norm(projected_point[0:2] - self.p1[0:2]) <= self.epislon_error or np.linalg.norm(projected_point[0:2] - self.p2[0:2]) <= self.epislon_error:
             return None
+
         return projected_point
     
     def _theta_projection(self, p):

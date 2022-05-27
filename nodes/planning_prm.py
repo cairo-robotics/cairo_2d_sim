@@ -27,7 +27,7 @@ if __name__ == '__main__':
     state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
     svc = StateValidityChecker(start_q, goal_q)
     interp_fn = partial(parametric_xytheta_lerp, steps=10)
-    prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': True, 'ball_radius': 50, 'n_samples': 12000, 'k': 15})
+    prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 12000, 'k': 15})
     
     tsr = UnconstrainedPRMTSR()
     path_points = prm.get_path(prm.plan(tsr, start_q, goal_q))

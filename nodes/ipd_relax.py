@@ -2,6 +2,7 @@
 import os
 import json
 import os
+import itertools
 from functools import partial
 from pprint import pprint
 
@@ -188,10 +189,12 @@ if __name__ == '__main__':
             inter_trajs_data = []
             for traj in inter_trajs:
                 inter_trajs_data = inter_trajs_data + [[obsv['robot']['x'], obsv['robot']['y'], obsv['robot']['theta']]  for obsv in traj]
+                inter_trajs_data.sort()
+                inter_trajs_data = list(k for k, _ in itertools.groupby(inter_trajs_data))
             if len(inter_trajs_data) == 0:
                 planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
             else:
-                planning_biasing_distribution = KernelDensityDistribution()
+                planning_biasing_distribution = KernelDensityDistribution(bandwidth=.25)
                 planning_biasing_distribution.fit(inter_trajs_data)
                 planning_state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
         planning_G.edges[edge]["planning_state_space"] = planning_state_space
@@ -255,22 +258,27 @@ if __name__ == '__main__':
                 end = list(waypoint)
         else:
             end = list(planning_G.nodes[e2]['waypoint'])
-        print("\n\nSTART AND END\n")
+        print("\n\nSTART AND END")
+        print(e1, e2)
         print(start, end)
+        print(planning_G.nodes[e2]['constraint_ids'])
+        print(planning_G.edges[edge]['planning_tsr'])
+        print()
         
         # Constrained motion planning for specific manifold segment
         state_space = planning_G.edges[edge]['planning_state_space']
         tsr = planning_G.edges[edge]['planning_tsr']
         print(tsr)
+        # state validity only checks if a poitn is epislong = 5 close to the start or goal. Too many points generated that close tostart and end creates cliques that the planner can not escape when plannign from start to end
         svc = StateValidityChecker(start, end)
         interp_fn = partial(parametric_xytheta_lerp, steps=10)
-        prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 3000, 'k': 15})
+        prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 100, 'n_samples': 500, 'k': 100})
         
         plan = prm.plan(tsr, start, end)
         
         if len(plan) == 0:
             print("No initial plan found, ramping up number of points")
-            prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 20000, 'k': 15})
+            prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 100, 'n_samples': 2000, 'k': 100})
         
             plan = prm.plan(tsr, start, end)
         if len(plan) == 0:

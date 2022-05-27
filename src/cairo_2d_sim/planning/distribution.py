@@ -9,7 +9,7 @@ class KernelDensityDistribution():
     Args:
         bandwidth (float): Parameter for KDE models that determines the spead or variance of the kernel. The smaller the bandwidth, the more closely the KDE model will fit the training data.
     """
-    def __init__(self, bandwidth=.1):
+    def __init__(self, bandwidth=.25):
         self.model = KernelDensity(kernel='gaussian', bandwidth=bandwidth)
 
     def fit(self, X):

@@ -8,23 +8,24 @@ class StateValidityChecker():
     
     def __init__(self, start, goal):
         self.start = start
-        self.goal= goal  
+        self.goal = goal  
+        self.epislon = 5
     
     def validate(self, q):
-        if self._equal_to_goal(q) or self._equal_to_start(q):
-            return False
+        # if self._close_to_goal(q) or self._close_to_start(q):
+        #     return False
         return True
 
-    def _equal_to_start(self, q):
-        if self.start[0] == q[0] and self.start[1] == q[1]:
+    def _close_to_start(self, q):
+        if np.linalg.norm(q[0:2] - self.start[0:2]) <= self.epislon:
             return True
         return False
     
-    def _equal_to_goal(self, q):
-        if self.goal[0] == q[0] and self.goal[1] == q[1]:
+    def _close_to_goal(self, q):
+        if np.linalg.norm(q[0:2] - self.goal[0:2]) <= self.epislon:
             return True
         return False
-
+    
 class Holonomic2DStateSpace():
     
     def __init__(self, x_domain, y_domain, theta_domain=(0, 360)):
