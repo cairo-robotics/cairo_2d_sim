@@ -64,11 +64,7 @@ if __name__ == '__main__':
     X_DOMAIN = [0, 1800]
     Y_DOMAIN = [0, 1000]
     THETA_DOMAIN = [0, 360]
-    
-
-    MOVE_TIME = 5
-    
-    
+    MOVE_TIME = 20
     
     ##################################
     # TSR's for each line Constraint #
@@ -92,7 +88,7 @@ if __name__ == '__main__':
     #################################################
     # Import demonstration data and build the model #
     #################################################
-    filepath = os.path.join(FILE_DIR, "../data/test/ipd_relax/*.json")
+    filepath = os.path.join(FILE_DIR, "../data/test/ipd_relax_2/*.json")
     loaded_demonstration_data = load_json_files(filepath)
     # Convert imported data into Demonstrations and Observations
     demonstrations = []
@@ -193,7 +189,7 @@ if __name__ == '__main__':
             if len(inter_trajs_data) == 0:
                 planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
             else:
-                planning_biasing_distribution = KernelDensityDistribution(bandwidth=.25)
+                planning_biasing_distribution = KernelDensityDistribution(bandwidth=.15)
                 planning_biasing_distribution.fit(inter_trajs_data)
                 planning_state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
         planning_G.edges[edge]["planning_state_space"] = planning_state_space
@@ -270,13 +266,13 @@ if __name__ == '__main__':
         # state validity only checks if a poitn is epislong = 5 close to the start or goal. Too many points generated that close tostart and end creates cliques that the planner can not escape when plannign from start to end
         svc = StateValidityChecker(start, end)
         interp_fn = partial(parametric_xytheta_lerp, steps=10)
-        prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 1500, 'k': 50})
+        prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 360, 'n_samples': 1500, 'k': 100})
         
         plan = prm.plan(tsr, start, end)
         
         if len(plan) == 0:
             print("No initial plan found, ramping up number of points")
-            prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 3000, 'k': 50})
+            prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 360, 'n_samples': 3000, 'k': 100})
         
             plan = prm.plan(tsr, start, end)
         if len(plan) == 0:
@@ -296,7 +292,7 @@ if __name__ == '__main__':
     #     distanced_full_trajectory.append(edge[0] + [distance])
     # timed_trajectory = [[.1, q[0], q[1], q[2]] for q in distanced_full_trajectory]
     curve = JointTrajectoryCurve()
-    timed_trajectory = curve.generate_trajectory([np.array(entry) for entry in full_trajectory], move_time=20, num_intervals=1)
+    timed_trajectory = curve.generate_trajectory([np.array(entry) for entry in full_trajectory], move_time=MOVE_TIME, num_intervals=1)
     
     # Execute
         

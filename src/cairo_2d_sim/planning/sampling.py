@@ -4,7 +4,7 @@ import numpy as np
 
 class DistributionSampler():
 
-    def __init__(self, distribution_model, fraction_uniform=.25, high_confidence_sampling=False):
+    def __init__(self, distribution_model, fraction_uniform=.45, high_confidence_sampling=False):
         """
         Samples from a fitted model that represents the distribution of discrete points. This could be a keyframe distribution, trajectory distribution, or any arbitrary distrubtion. Sampling checks if the values are within limits (usually the joint limits of the robot) passed in as an argument ot the sample function.
 

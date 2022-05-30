@@ -180,14 +180,13 @@ class CPRM():
         self.nn_samples = [np.array(self.graph.vs.find(name = self.start_name)['value']), np.array(self.graph.vs.find(name = self.goal_name)['value'])] + self.samples
         self.nn = NearestNeighbors(X=np.array(
             self.nn_samples))
+        print(self.nn.query(np.array(self.graph.vs.find(name = self.start_name)['value'])))
         # Generate NN connectivity.
         print("Generating nearest neighbor connectivity...")
         # connections = self._generate_connections(samples=self.samples)
         connections = self._generate_conections_from_graph()
         print("Generating graph from samples and connections...")
         self._build_graph(self.samples, connections)
-        print("Attaching start and end to graph...")
-        self._attach_start_and_end()
         print("Finding feasible best path in graph if available...")
         if self._success():
             if self.smooth:
@@ -301,29 +300,6 @@ class CPRM():
         self.graph.add_edges(edges)
         self.graph.es['weight'] = weights
 
-    def _attach_start_and_end(self):
-        start = self.graph.vs.find(name = self.start_name)['value']
-        end = self.graph.vs.find(name = self.goal_name)['value']
-        start_added = False
-        end_added = False
-        for q_near in self._neighbors(start, k_override=50, within_ball=False):
-            if self._idx_of_point(q_near) != 0:
-                successful, local_path = self._extend(start, q_near)
-                if successful:
-                    start_added = True
-                    self._add_edge_to_graph(
-                        start, q_near, self._weight(local_path))
-        for q_near in self._neighbors(end, k_override=50, within_ball=False):
-            if self._idx_of_point(q_near) != 1:
-                successful, local_path = self._extend(q_near, end)
-                if successful:
-                    end_added = True
-                    self._add_edge_to_graph(
-                        q_near, end, self._weight(local_path))
-        if not start_added or not end_added:
-            raise Exception("Planning failure! Could not add either start {} and end {} successfully to graph.".format(
-                {start_added}, {end_added}))
-
     def _success(self):
         paths = self.graph.shortest_paths_dijkstra(
             self.start_name, self.goal_name, weights='weight', mode='ALL')
@@ -352,20 +328,12 @@ class CPRM():
             return [neighbor for distance, neighbor in zip(
                 distances, neighbors) if distance <= self.ball_radius and distance > 0]
         else:
-            return neighbors
+            return distances, neighbors
 
     def _sample(self, tsr):
         p = self.state_space.sample()
         return np.array(tsr.project(p))
 
-    # def _add_edge_to_graph(self, q_near, q_sample, edge_weight):
-    #     q_near_idx = self._idx_of_point(q_near)
-    #     q_sample_idx = self._idx_of_point(
-    #         q_sample)
-    #     if tuple(sorted([q_near_idx, q_sample_idx])) not in set([tuple(sorted(edge.tuple)) for edge in self.graph.es]):
-    #         self.graph.add_edge(q_near_idx, q_sample_idx,
-    #                             **{'weight': edge_weight})
-            
     def _add_edge_to_graph(self, q_from, q_to, weight):
         if val2str(q_from) == self.start_name:
             q_from_idx = name2idx(self.graph, self.start_name)
