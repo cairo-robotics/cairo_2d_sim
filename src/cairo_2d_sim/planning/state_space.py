@@ -12,8 +12,8 @@ class StateValidityChecker():
         self.epislon = 5
     
     def validate(self, q):
-        # if self._close_to_goal(q) or self._close_to_start(q):
-        #     return False
+        if self._close_to_goal(q) or self._close_to_start(q):
+            return False
         return True
 
     def _close_to_start(self, q):

@@ -8,6 +8,7 @@ from pprint import pprint
 
 from std_msgs.msg import Header
 from geometry_msgs.msg import  Pose2D
+import numpy as np
 import rospy
 import networkx as nx
 
@@ -15,7 +16,7 @@ from cairo_2d_sim.planning.distribution import KernelDensityDistribution
 from cairo_2d_sim.planning.optimization import  DualIntersectionWithTargetingOptimization, SingleIntersectionWithTargetingOptimization
 from cairo_2d_sim.planning.constraints import UnconstrainedPRMTSR, LineConstraintPRMTSR, LineTargetingConstraintPRMTSR
 from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, Holonomic2DBiasedStateSpace, StateValidityChecker
-from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_lerp
+from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_lerp, JointTrajectoryCurve
 from cairo_2d_sim.planning.planners import CPRM
 from cairo_2d_sim.msg import Pose2DStamped
 
@@ -76,7 +77,7 @@ if __name__ == '__main__':
     c2tsr_map[()] = UnconstrainedPRMTSR()
     c2tsr_map[(1,)] = LineConstraintPRMTSR((405, 105), (405, 805))
     c2tsr_map[(2,)] = LineTargetingConstraintPRMTSR([405, 100], [1205, 100], [800, 500])
-    c2tsr_map[(3,)] = LineConstraintPRMTSR((1195, 105), (1195, 505))
+    c2tsr_map[(3,)] = LineConstraintPRMTSR((1205, 105), (1195, 505))
 
     ######################################
     # Constraint Intersection Optimizers #
@@ -110,11 +111,9 @@ if __name__ == '__main__':
         "output": ""
     }
      
-    print(demonstrations[0].observations[0].data)
     alignment = DemonstrationAlignment(demo_vectorizor)
     demo_labeler = DemonstrationLabler(label_settings, alignment)
     labeled_initial_demos = demo_labeler.label(demonstrations)
-    print(labeled_initial_demos)
     
     lfd = LfD2D(observation_xytheta_vectorizor)
     lfd.build_keyframe_graph(labeled_initial_demos, .05)
@@ -180,7 +179,7 @@ if __name__ == '__main__':
 
         # Generate the biasing state space for the edge:
         # create sampling biased State Space for use by the planner using the current keyframes upcoming segment intermediate trajectory data.
-        if e1 == "start" or e1 == "goal":
+        if e1 == "start" or e2 == "goal":
             # We don't have intermediate trajectories from these points
             planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
         else:
@@ -209,7 +208,6 @@ if __name__ == '__main__':
                 candidate_point = lfd.sample_from_keyframe(e1, n_samples=1)
 
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
-                print(planning_G.nodes[e1]['constraint_ids'])
                 point_optimizer = optimization_map.get(planning_G.nodes[e1]['constraint_ids'], None)
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
@@ -234,10 +232,9 @@ if __name__ == '__main__':
             found = False
             while not found:
                 # sample a candidate point from the keyframe model
-                candidate_point = lfd.sample_from_keyframe(e2, n_samples=1)
+                candidate_point = lfd.sample_from_keyframe(e2, 1)
                 
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
-                print(planning_G.nodes[e2]['constraint_ids'])
                 point_optimizer = optimization_map.get(planning_G.nodes[e2]['constraint_ids'], None)
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
@@ -261,24 +258,25 @@ if __name__ == '__main__':
         print("\n\nSTART AND END")
         print(e1, e2)
         print(start, end)
-        print(planning_G.nodes[e2]['constraint_ids'])
+        if e2 != 'goal':
+            print(planning_G.nodes[e2]['constraint_ids'])
         print(planning_G.edges[edge]['planning_tsr'])
         print()
         
         # Constrained motion planning for specific manifold segment
         state_space = planning_G.edges[edge]['planning_state_space']
         tsr = planning_G.edges[edge]['planning_tsr']
-        print(tsr)
+
         # state validity only checks if a poitn is epislong = 5 close to the start or goal. Too many points generated that close tostart and end creates cliques that the planner can not escape when plannign from start to end
         svc = StateValidityChecker(start, end)
         interp_fn = partial(parametric_xytheta_lerp, steps=10)
-        prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 100, 'n_samples': 500, 'k': 100})
+        prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 1500, 'k': 50})
         
         plan = prm.plan(tsr, start, end)
         
         if len(plan) == 0:
             print("No initial plan found, ramping up number of points")
-            prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 100, 'n_samples': 2000, 'k': 100})
+            prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 50, 'n_samples': 3000, 'k': 50})
         
             plan = prm.plan(tsr, start, end)
         if len(plan) == 0:
@@ -286,8 +284,19 @@ if __name__ == '__main__':
         path_points = prm.get_path(plan)
     
         full_trajectory = full_trajectory + path_points
-        
-    timed_trajectory = list(zip([MOVE_TIME * n/len(full_trajectory) for n in range(0, len(full_trajectory))], [q[0] for q in full_trajectory], [q[1] for q in full_trajectory], [q[2] for q in full_trajectory]))
+    
+    # distanced_full_trajectory = []
+    # total_distance = 0
+    # for edge in list(zip(full_trajectory, full_trajectory[1:])):
+    #     print(edge)
+    #     distance = np.linalg.norm(np.array(edge[0][0:2]) - np.array(edge[1][0:2]))
+    #     # if distance < .5:
+    #     #     distance = 10 # this will make the angle take longer to move through since close together points are usually turning angle only
+    #     total_distance += distance
+    #     distanced_full_trajectory.append(edge[0] + [distance])
+    # timed_trajectory = [[.1, q[0], q[1], q[2]] for q in distanced_full_trajectory]
+    curve = JointTrajectoryCurve()
+    timed_trajectory = curve.generate_trajectory([np.array(entry) for entry in full_trajectory], move_time=20, num_intervals=1)
     
     # Execute
         
@@ -298,9 +307,9 @@ if __name__ == '__main__':
         header = Header()
         header.stamp = rospy.Time.now()
         pose2d = Pose2D()
-        pose2d.x = point[1]
-        pose2d.y = point[2]
-        pose2d.theta = point[3]
+        pose2d.x = point[1][0]
+        pose2d.y = point[1][1]
+        pose2d.theta = point[1][2]
         pose2dstamped = Pose2DStamped()
         pose2dstamped.header = header
         pose2dstamped.pose2d = pose2d

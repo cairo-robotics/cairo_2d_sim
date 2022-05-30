@@ -206,7 +206,7 @@ class SingleIntersectionWithTargetingOptimization():
         m.Equation(T == (360 - m.atan((self.target[1] - Y) / (self.target[0] - X)) * 180 / pi))
         m.Equation(distance_from_intersection <= self.epislon_error)
         
-        m.Obj(distance_from_intersection + distance_from_keyframe_point)
+        m.Obj(3 * distance_from_intersection + distance_from_keyframe_point)
         self.model = m 
         try:
             self.model.solve(disp=False, debug=True)
@@ -269,7 +269,7 @@ class SingleIntersectionOptimization():
         m.Equation(Y >= 0)
         m.Equation(distance_from_intersection <= self.epislon_error)
         
-        m.Obj(distance_from_intersection + distance_from_keyframe_point)
+        m.Obj(3 * distance_from_intersection + distance_from_keyframe_point)
         self.model = m 
         try:
             self.model.solve(disp=False, debug=True)
