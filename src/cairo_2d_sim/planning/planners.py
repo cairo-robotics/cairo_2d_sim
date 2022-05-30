@@ -176,11 +176,14 @@ class CPRM():
         self.samples = self._generate_samples(tsr)
         # Create NN datastructure
         print("Creating NN datastructure...")
+        # include the start and goal states in the NN structure
+        self.nn_samples = [np.array(self.graph.vs.find(name = self.start_name)['value']), np.array(self.graph.vs.find(name = self.goal_name)['value'])] + self.samples
         self.nn = NearestNeighbors(X=np.array(
-            self.samples), model_kwargs={"leaf_size": 100})
+            self.nn_samples))
         # Generate NN connectivity.
         print("Generating nearest neighbor connectivity...")
-        connections = self._generate_connections(samples=self.samples)
+        # connections = self._generate_connections(samples=self.samples)
+        connections = self._generate_conections_from_graph()
         print("Generating graph from samples and connections...")
         self._build_graph(self.samples, connections)
         print("Attaching start and end to graph...")
@@ -262,8 +265,6 @@ class CPRM():
         connections = []
         for q_rand in samples:
             for q_neighbor in self._neighbors(q_rand):
-                # We ignore really close together points
-                # if np.linalg.norm(np.array(q_neighbor[0:2]) - np.array(q_rand[0:2])) >= 5:
                 valid, local_path = self._extend(
                     np.array(q_rand), np.array(q_neighbor))
                 if valid:
@@ -272,7 +273,20 @@ class CPRM():
         print("{} connections out of {} samples".format(
             len(connections), len(samples)))
         return connections
-
+    
+    def _generate_conections_from_graph(self):
+        nng = self.nn.get_graph()
+        distances = nng[0]
+        neighbor_indices = nng[1]
+        within_ball_distances = [[distance for distance in sample_neighbor_distances if distance <= self.ball_radius] for sample_neighbor_distances in distances]
+        within_ball_indices = [(neighbor_indices[idx][0], [neighbor_indices[idx][i] for i in range(1, len(wbd))]) for idx, wbd in enumerate(within_ball_distances)]
+        connections = []
+        for entry in within_ball_indices:
+            cur_sample_idx = entry[0]
+            for neighbor_dx in entry[1]:
+                connections.append([self.nn_samples[cur_sample_idx], self.nn_samples[neighbor_dx], self.distance_fn(self.nn_samples[cur_sample_idx], self.nn_samples[neighbor_dx])])
+        return connections
+        
     def _build_graph(self, samples, connections):
         curr_names = self.graph.vs['name'] # we have to snag the current names and values before adding vertices
         curr_values = self.graph.vs['value']
@@ -288,8 +302,8 @@ class CPRM():
         self.graph.es['weight'] = weights
 
     def _attach_start_and_end(self):
-        start = self.graph.vs.find('name' == self.start_name)['value']
-        end = self.graph.vs.find('name' == self.goal_name)['value']
+        start = self.graph.vs.find(name = self.start_name)['value']
+        end = self.graph.vs.find(name = self.goal_name)['value']
         start_added = False
         end_added = False
         for q_near in self._neighbors(start, k_override=50, within_ball=False):
@@ -312,7 +326,7 @@ class CPRM():
 
     def _success(self):
         paths = self.graph.shortest_paths_dijkstra(
-            [0], [1], weights='weight', mode='ALL')
+            self.start_name, self.goal_name, weights='weight', mode='ALL')
         if len(paths) > 0 and paths[0][0] != np.inf:
             return True
         return False
@@ -338,8 +352,7 @@ class CPRM():
             return [neighbor for distance, neighbor in zip(
                 distances, neighbors) if distance <= self.ball_radius and distance > 0]
         else:
-            return [neighbor for distance, neighbor in sorted(
-                list(zip(distances, neighbors)), key=lambda x: x[0]) if distance > 0]
+            return neighbors
 
     def _sample(self, tsr):
         p = self.state_space.sample()
