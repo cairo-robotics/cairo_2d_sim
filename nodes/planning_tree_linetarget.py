@@ -9,7 +9,7 @@ from geometry_msgs.msg import  Pose2D
 import pygame as pg
 
 from cairo_2d_sim.msg import Pose2DStamped
-from cairo_2d_sim.lfd.state_space import Holonomic2DStateSpace, StateValidityChecker
+from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, StateValidityChecker
 from cairo_2d_sim.planning.constraints import UnconstrainedTreeTSR, LineConstraintTreeTSR, LineTargetingConstraintTreeTSR
 from cairo_2d_sim.planning.planners import CRRT
 from cairo_2d_sim.planning.curve import JointTrajectoryCurve, xytheta_distance, parametric_xytheta_lerp

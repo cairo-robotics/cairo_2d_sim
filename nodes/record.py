@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 import rospy
 
-from cairo_2d_sim.lfd.record import Record
+from cairo_2d_sim.control.record import Record
      
 if __name__ == '__main__':
     recorder = Record()

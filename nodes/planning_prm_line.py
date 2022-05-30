@@ -9,9 +9,9 @@ from geometry_msgs.msg import  Pose2D
 import pygame as pg
 
 from cairo_2d_sim.msg import Pose2DStamped
-from cairo_2d_sim.lfd.state_space import Holonomic2DStateSpace, StateValidityChecker
+from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, StateValidityChecker
 from cairo_2d_sim.planning.constraints import UnconstrainedPRMTSR, LineConstraintPRMTSR, LineTargetingConstraintPRMTSR
-from cairo_2d_sim.planning.planners import PRM
+from cairo_2d_sim.planning.planners import CPRM
 from cairo_2d_sim.planning.curve import JointTrajectoryCurve, xytheta_distance, parametric_xytheta_lerp
 
 
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
     svc = StateValidityChecker(start_q, goal_q)
     interp_fn = partial(parametric_xytheta_lerp, steps=10)
-    prm = PRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': True, 'ball_radius': 50, 'n_samples': 6000, 'k': 15})
+    prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': True, 'ball_radius': 50, 'n_samples': 6000, 'k': 15})
     tsr = LineConstraintPRMTSR([400, 100], [1205, 100])
     
     path_points = prm.get_path(prm.plan(tsr, start_q, goal_q))

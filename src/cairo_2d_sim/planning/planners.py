@@ -151,7 +151,7 @@ class CRRT():
         return self.distance_fn(q1, q2)
     
 
-class PRM():
+class CPRM():
     def __init__(self, state_space, state_validity_checker, interpolation_fn, distance_fn, params):
         self.graph = ig.Graph()
         self.state_space = state_space
@@ -169,17 +169,23 @@ class PRM():
         # Initial sampling of roadmap and NN data structure.
         print("Initializing roadmap...")
         self._init_roadmap(q_start, q_goal)
+        if np.linalg.norm(np.array(q_start[0:2]) - np.array(q_goal[0:2])) < 10:
+            self._add_edge_to_graph(q_start, q_goal, self.distance_fn(q_start, q_goal))
+            return self.best_sequence()
         print("Generating valid random samples...")
-        samples = self._generate_samples(tsr)
+        self.samples = self._generate_samples(tsr)
         # Create NN datastructure
         print("Creating NN datastructure...")
+        # include the start and goal states in the NN structure
+        self.nn_samples = [np.array(self.graph.vs.find(name = self.start_name)['value']), np.array(self.graph.vs.find(name = self.goal_name)['value'])] + self.samples
         self.nn = NearestNeighbors(X=np.array(
-            samples), model_kwargs={"leaf_size": 100})
+            self.nn_samples))
         # Generate NN connectivity.
         print("Generating nearest neighbor connectivity...")
-        connections = self._generate_connections(samples=samples)
+        # connections = self._generate_connections(samples=self.samples)
+        connections = self._generate_conections_from_graph()
         print("Generating graph from samples and connections...")
-        self._build_graph(samples, connections)
+        self._build_graph(self.samples, connections)
         print("Attaching start and end to graph...")
         self._attach_start_and_end()
         print("Finding feasible best path in graph if available...")
@@ -209,10 +215,8 @@ class PRM():
     def _init_roadmap(self, q_start, q_goal):
         self.start_name = val2str(q_start)
         self.graph.add_vertex(**{'name': self.start_name, 'value': list(q_start)})
-        # Start is always at the 0 index.
         self.goal_name = val2str(q_goal)
         self.graph.add_vertex(**{'name': self.goal_name, 'value': list(q_goal)})
-        # Start is always at the 0 index.
        
     def _smooth(self, plan):
         def shortcut(plan):
@@ -247,7 +251,7 @@ class PRM():
         while count < self.n_samples:
             # start_time = timer()
             q_rand = self._sample(tsr)
-            if np.any(q_rand):
+            if q_rand is not None and np.any(q_rand):
                 if self._validate(q_rand):
                     if count % 500 == 0:
                         print("{} valid samples...".format(count))
@@ -269,7 +273,20 @@ class PRM():
         print("{} connections out of {} samples".format(
             len(connections), len(samples)))
         return connections
-
+    
+    def _generate_conections_from_graph(self):
+        nng = self.nn.get_graph()
+        distances = nng[0]
+        neighbor_indices = nng[1]
+        within_ball_distances = [[distance for distance in sample_neighbor_distances if distance <= self.ball_radius] for sample_neighbor_distances in distances]
+        within_ball_indices = [(neighbor_indices[idx][0], [neighbor_indices[idx][i] for i in range(1, len(wbd))]) for idx, wbd in enumerate(within_ball_distances)]
+        connections = []
+        for entry in within_ball_indices:
+            cur_sample_idx = entry[0]
+            for neighbor_dx in entry[1]:
+                connections.append([self.nn_samples[cur_sample_idx], self.nn_samples[neighbor_dx], self.distance_fn(self.nn_samples[cur_sample_idx], self.nn_samples[neighbor_dx])])
+        return connections
+        
     def _build_graph(self, samples, connections):
         curr_names = self.graph.vs['name'] # we have to snag the current names and values before adding vertices
         curr_values = self.graph.vs['value']
@@ -285,18 +302,18 @@ class PRM():
         self.graph.es['weight'] = weights
 
     def _attach_start_and_end(self):
-        start = self.graph.vs[0]['value']
-        end = self.graph.vs[1]['value']
+        start = self.graph.vs.find(name = self.start_name)['value']
+        end = self.graph.vs.find(name = self.goal_name)['value']
         start_added = False
         end_added = False
-        for q_near in self._neighbors(start, k_override=30, within_ball=False):
+        for q_near in self._neighbors(start, k_override=50, within_ball=False):
             if self._idx_of_point(q_near) != 0:
                 successful, local_path = self._extend(start, q_near)
                 if successful:
                     start_added = True
                     self._add_edge_to_graph(
                         start, q_near, self._weight(local_path))
-        for q_near in self._neighbors(end, k_override=30, within_ball=False):
+        for q_near in self._neighbors(end, k_override=50, within_ball=False):
             if self._idx_of_point(q_near) != 1:
                 successful, local_path = self._extend(q_near, end)
                 if successful:
@@ -309,7 +326,7 @@ class PRM():
 
     def _success(self):
         paths = self.graph.shortest_paths_dijkstra(
-            [0], [1], weights='weight', mode='ALL')
+            self.start_name, self.goal_name, weights='weight', mode='ALL')
         if len(paths) > 0 and paths[0][0] != np.inf:
             return True
         return False
@@ -335,19 +352,35 @@ class PRM():
             return [neighbor for distance, neighbor in zip(
                 distances, neighbors) if distance <= self.ball_radius and distance > 0]
         else:
-            return [neighbor for distance, neighbor in sorted(
-                list(zip(distances, neighbors)), key=lambda x: x[0]) if distance > 0]
+            return neighbors
 
     def _sample(self, tsr):
-        return np.array(tsr.project(self.state_space.sample()))
+        p = self.state_space.sample()
+        return np.array(tsr.project(p))
 
-    def _add_edge_to_graph(self, q_near, q_sample, edge_weight):
-        q_near_idx = self._idx_of_point(q_near)
-        q_sample_idx = self._idx_of_point(
-            q_sample)
-        if tuple(sorted([q_near_idx, q_sample_idx])) not in set([tuple(sorted(edge.tuple)) for edge in self.graph.es]):
-            self.graph.add_edge(q_near_idx, q_sample_idx,
-                                **{'weight': edge_weight})
+    # def _add_edge_to_graph(self, q_near, q_sample, edge_weight):
+    #     q_near_idx = self._idx_of_point(q_near)
+    #     q_sample_idx = self._idx_of_point(
+    #         q_sample)
+    #     if tuple(sorted([q_near_idx, q_sample_idx])) not in set([tuple(sorted(edge.tuple)) for edge in self.graph.es]):
+    #         self.graph.add_edge(q_near_idx, q_sample_idx,
+    #                             **{'weight': edge_weight})
+            
+    def _add_edge_to_graph(self, q_from, q_to, weight):
+        if val2str(q_from) == self.start_name:
+            q_from_idx = name2idx(self.graph, self.start_name)
+        elif val2str(q_from) == self.goal_name:
+            q_from_idx = name2idx(self.graph, self.goal_name)
+        else:
+            q_from_idx = name2idx(self.graph, val2str(q_from))
+        if val2str(q_to) == self.start_name:
+            q_to_idx = name2idx(self.graph, self.start_name)
+        elif val2str(q_to) == self.goal_name:
+            q_to_idx = name2idx(self.graph, self.goal_name)
+        else:
+            q_to_idx = name2idx(self.graph, val2str(q_to))
+        if tuple(sorted([q_from_idx, q_to_idx])) not in set([tuple(sorted(edge.tuple)) for edge in self.graph.es]):
+            self.graph.add_edge(q_from_idx, q_to_idx, **{'weight': weight})
 
     def _weight(self, local_path):
         return cumulative_distance(local_path, self.distance_fn)
