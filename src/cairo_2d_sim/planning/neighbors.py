@@ -2,8 +2,6 @@ import time
 
 import numpy as np
 from sklearn.neighbors import NearestNeighbors as NN
-from sklearn.neighbors import KDTree
-from pynndescent import NNDescent
 
 # class NearestNeighbors():
 #     """
