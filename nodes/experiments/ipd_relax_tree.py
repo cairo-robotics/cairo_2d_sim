@@ -6,7 +6,7 @@ import itertools
 from functools import partial
 from pprint import pprint
 
-from std_msgs.msg import Header
+from std_msgs.msg import Header, String
 from geometry_msgs.msg import  Pose2D
 import numpy as np
 import rospy
@@ -14,10 +14,10 @@ import networkx as nx
 
 from cairo_2d_sim.planning.distribution import KernelDensityDistribution
 from cairo_2d_sim.planning.optimization import  DualIntersectionWithTargetingOptimization, SingleIntersectionWithTargetingOptimization
-from cairo_2d_sim.planning.constraints import UnconstrainedPRMTSR, LineConstraintPRMTSR, LineTargetingConstraintPRMTSR
+from cairo_2d_sim.planning.constraints import UnconstrainedTreeTSR, LineConstraintTreeTSR, DualLineTargetingConstraintTreeTSR
 from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, Holonomic2DBiasedStateSpace, StateValidityChecker
 from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_lerp, JointTrajectoryCurve
-from cairo_2d_sim.planning.planners import CPRM
+from cairo_2d_sim.planning.planners import CRRT
 from cairo_2d_sim.msg import Pose2DStamped
 
 from cairo_lfd.core.environment import SimpleObservation, Demonstration
@@ -52,10 +52,24 @@ def extract_constraint_map_key(orderd_constraint_dict):
         if orderd_constraint_dict['c3'] is True:
             constraint_key.append(3)
     return tuple(set(constraint_key))
-            
+
+def publish_directed_point(publisher, position, angle, radius, color):
+    data = {}
+    data['x'] = position[0]
+    data['y'] = position[1]
+    data['radius'] = radius
+    data['angle'] = angle
+    data['color'] = color
+    data_str = json.dumps(data)
+    publisher.publish(data_str)
 
 if __name__ == '__main__':
+    
+    ###############
+    # ROS THINGS  #
+    ##############
     rospy.init_node("optimization_node")
+    circle_static_pub = rospy.Publisher('/cairo_2d_sim/create_directional_circle_static', String, queue_size=1)
         
     #############
     # CONSTANTS #
@@ -70,10 +84,10 @@ if __name__ == '__main__':
     # TSR's for each line Constraint #
     ##################################
     c2tsr_map = {}
-    c2tsr_map[()] = UnconstrainedPRMTSR()
-    c2tsr_map[(1,)] = LineConstraintPRMTSR((405, 105), (405, 805))
-    c2tsr_map[(2,)] = LineTargetingConstraintPRMTSR([405, 100], [1205, 100], [800, 500])
-    c2tsr_map[(3,)] = LineConstraintPRMTSR((1205, 105), (1195, 505))
+    c2tsr_map[()] = UnconstrainedTreeTSR()
+    c2tsr_map[(1,)] = LineConstraintTreeTSR((405, 105), (405, 805))
+    c2tsr_map[(2,)] = DualLineTargetingConstraintTreeTSR([405, 100], [1205, 100], [404, 700], [1205, 700], [800, 500])
+    c2tsr_map[(3,)] = LineConstraintTreeTSR((1205, 105), (1195, 505))
 
     ######################################
     # Constraint Intersection Optimizers #
@@ -88,7 +102,7 @@ if __name__ == '__main__':
     #################################################
     # Import demonstration data and build the model #
     #################################################
-    filepath = os.path.join(FILE_DIR, "../data/test/ipd_relax_2/*.json")
+    filepath = os.path.join(FILE_DIR, "../../data/test/ipd_relax_2/*.json")
     loaded_demonstration_data = load_json_files(filepath)
     # Convert imported data into Demonstrations and Observations
     demonstrations = []
@@ -202,7 +216,7 @@ if __name__ == '__main__':
             while not found:
                 # sample a candidate point from the keyframe model
                 candidate_point = lfd.sample_from_keyframe(e1, n_samples=1)
-
+                
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
                 point_optimizer = optimization_map.get(planning_G.nodes[e1]['constraint_ids'], None)
                 if point_optimizer is None:
@@ -221,6 +235,10 @@ if __name__ == '__main__':
                         found = True
                     else:
                         continue
+                # Send the used candidate point to the replay renderer:
+                publish_directed_point(circle_static_pub, candidate_point[0:2], candidate_point[2], 8, [255, 25, 0])
+                # Send the corrected point
+                publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
                 start = list(waypoint)
         else:
             start = list(planning_G.nodes[e1]['waypoint'])
@@ -248,6 +266,11 @@ if __name__ == '__main__':
                         found = True
                     else:
                         continue
+                 # Send to the game renderer:
+                publish_directed_point(circle_static_pub, candidate_point[0:2], candidate_point[2], 8, [255, 25, 0])
+                # Send the updated correct point
+                publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
+
                 end = list(waypoint)
         else:
             end = list(planning_G.nodes[e2]['waypoint'])
@@ -266,18 +289,18 @@ if __name__ == '__main__':
         # state validity only checks if a poitn is epislong = 5 close to the start or goal. Too many points generated that close tostart and end creates cliques that the planner can not escape when plannign from start to end
         svc = StateValidityChecker(start, end)
         interp_fn = partial(parametric_xytheta_lerp, steps=10)
-        prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 360, 'n_samples': 1500, 'k': 100})
+        crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 50, 'e_step': .25, 'extension_distance': 50, 'smoothing_time': 10})
         
-        plan = prm.plan(tsr, start, end)
+        plan = crrt.plan(tsr, start, end)
         
         if len(plan) == 0:
             print("No initial plan found, ramping up number of points")
-            prm = CPRM(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'ball_radius': 360, 'n_samples': 3000, 'k': 100})
+            crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 50, 'e_step': .25, 'extension_distance': 50, 'smoothing_time': 10})
         
-            plan = prm.plan(tsr, start, end)
+            plan = crrt.plan(tsr, start, end)
         if len(plan) == 0:
             raise Exception("One segment failed to find a plan")
-        path_points = prm.get_path(plan)
+        path_points = crrt.get_path(plan)
     
         full_trajectory = full_trajectory + path_points
     
