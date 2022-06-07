@@ -79,7 +79,13 @@ class CRRT():
         self.tree = ig.Graph(directed=True)
     
     def _constrained_extend(self, tsr, q_near, q_target):
-        return self._constrain_config(tsr=tsr, q_target=q_target,  q_near=q_near)
+        projected_point =  self._constrain_config(tsr=tsr, q_target=q_target, q_near=q_near)
+        v1 = projected_point[0] - q_near[0]
+        v2 = projected_point[1] - q_near[1]
+        v_norm = (v1**2 + v2**2)**.5
+        x_extension = min(abs(q_near[0] - projected_point[0]), abs(self.extension_distance * v1/v_norm))
+        y_extension = min(abs(q_near[1] - projected_point[1]), abs(self.extension_distance * v2/v_norm))
+        return [q_near[0] + x_extension, q_near[1] + y_extension, q_near[2]]
         
             
     def _constrain_config(self, tsr, q_target, q_near)              :
@@ -332,7 +338,7 @@ class CPRM():
 
     def _sample(self, tsr):
         p = self.state_space.sample()
-        return np.array(tsr.project(p))
+        return np.array(tsr.project(p, None))
 
     def _add_edge_to_graph(self, q_from, q_to, weight):
         if val2str(q_from) == self.start_name:
