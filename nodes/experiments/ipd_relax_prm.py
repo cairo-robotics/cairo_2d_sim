@@ -126,7 +126,7 @@ if __name__ == '__main__':
     labeled_initial_demos = demo_labeler.label(demonstrations)
     
     lfd = LfD2D(observation_xytheta_vectorizor)
-    lfd.build_keyframe_graph(labeled_initial_demos, .05)
+    lfd.build_keyframe_graph(labeled_initial_demos, .35)
     
     # The intemediate trajectory data is used to bias planning of segments between cosntraint intersection points.
     intermediate_trajectories = {key: [[o.data for o in segment] for segment in group]
@@ -203,7 +203,7 @@ if __name__ == '__main__':
             if len(inter_trajs_data) == 0:
                 planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
             else:
-                planning_biasing_distribution = KernelDensityDistribution(bandwidth=.15)
+                planning_biasing_distribution = KernelDensityDistribution(bandwidth=.25)
                 planning_biasing_distribution.fit(inter_trajs_data)
                 planning_state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
         planning_G.edges[edge]["planning_state_space"] = planning_state_space
