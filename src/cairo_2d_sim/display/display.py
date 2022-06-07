@@ -18,6 +18,9 @@ class Display():
         for toggle in self.toggles:
             toggle.render(screen)
         pg.display.flip()
+    
+    def update_statics(self, statics):
+        self.statics = statics
 
 
 

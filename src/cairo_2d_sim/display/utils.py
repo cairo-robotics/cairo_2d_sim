@@ -1,19 +1,44 @@
 import os
+import math
 
 import pygame as pg
 
-IMAGE_FILE_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../../../data/img/"
+IMAGE_FILE_DIR = os.path.dirname(
+    os.path.realpath(__file__)) + "/../../../data/img/"
+
 
 def draw_rect_alpha(screen, color, rect):
     shape_surf = pg.Surface(pg.Rect(rect).size, pg.SRCALPHA)
     pg.draw.rect(shape_surf, color, shape_surf.get_rect())
     screen.blit(shape_surf, rect)
-    
+
+
 def draw_circle_alpha(screen, color, center, radius):
     target_rect = pg.Rect(center, (0, 0)).inflate((radius * 2, radius * 2))
     shape_surf = pg.Surface(target_rect.size, pg.SRCALPHA)
     pg.draw.circle(shape_surf, color, (radius, radius), radius)
     screen.blit(shape_surf, target_rect)
+
+
+def draw_arrow_alpha(screen, color, pos, angle):
+    angle = angle + 90
+    body_length = 15
+    width = 10
+    # Create the triangle head around the origin
+    head_verts = [
+        pg.Vector2(0, width / 2),  # Center
+        pg.Vector2(width / 2, -width / 2),  # Bottomright
+        pg.Vector2(-width / 2, -width / 2),  # Bottomleft
+    ]
+    # Rotate and translate the head into place
+    translation = pg.Vector2(0, body_length - (width / 2)).rotate(-angle)
+    for i in range(len(head_verts)):
+        head_verts[i].rotate_ip(-angle)
+        head_verts[i] += translation
+        head_verts[i] += pos
+
+    pg.draw.polygon(screen, color, head_verts)
+
 
 def text_objects(text, font):
     txtsurf = font.render(text, True, (0, 0, 0))
@@ -23,6 +48,16 @@ def text_objects(text, font):
 def disptf(x, y, theta=0):
     a = [(x+500), (380-y), -theta]
     return a
+
+def rotate(pos, angle):
+    cen = (5+pos[0], 0+pos[1])
+    angle *= -(math.pi/180)
+    cos_theta = math.cos(angle)
+    sin_theta = math.sin(angle)
+    ret = ((cos_theta * (pos[0] - cen[0]) - sin_theta * (pos[1] - cen[1])) + cen[0],
+           (sin_theta * (pos[0] - cen[0]) + cos_theta * (pos[1] - cen[1])) + cen[1])
+    return ret
+
 
 def blit_rotate(image, target_pos, original_pos, angle):
     # offset from pivot to center
@@ -43,4 +78,3 @@ def blit_rotate(image, target_pos, original_pos, angle):
         center=rotated_image_center)
 
     return rotated_image, rotated_image_rect
-   
