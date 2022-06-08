@@ -146,6 +146,7 @@ class DualIntersectionWithTargetingOptimization():
             print('X: ' + str(X.value))
             print('Y: ' + str(Y.value))
             print('T: ' + str(T.value))
+            print('Theta actual : ' + str(theta_actual))
             print('A: ' + str(A.value))
             print('Objective: ' + str(m.options.objfcnval))
             self.model.cleanup()
@@ -210,10 +211,12 @@ class SingleIntersectionWithTargetingOptimization():
         self.model = m 
         try:
             self.model.solve(disp=False, debug=True)
+            theta_actual = 360 - atan2(self.target[1] - Y.value[0], self.target[0] - X.value[0]) * 180 / pi
             print('Results')
             print('X: ' + str(X.value))
             print('Y: ' + str(Y.value))
             print('T: ' + str(T.value))
+            print('Theta actual : ' + str(theta_actual))
             print('Objective: ' + str(m.options.objfcnval))
             self.model.cleanup()
             return [X.value[0], Y.value[0], T.value[0] % 360]

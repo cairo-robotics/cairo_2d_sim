@@ -18,6 +18,7 @@ from cairo_2d_sim.planning.constraints import UnconstrainedTSR, LineTSR, DualLin
 from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, Holonomic2DBiasedStateSpace, StateValidityChecker
 from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_lerp, JointTrajectoryCurve
 from cairo_2d_sim.planning.planners import CPRM
+from cairo_2d_sim.planning.sampling import sample_uniform_xytheta
 from cairo_2d_sim.msg import Pose2DStamped
 
 from cairo_lfd.core.environment import SimpleObservation, Demonstration
@@ -29,12 +30,9 @@ from cairo_lfd.data.io import load_json_files
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
-def demo_vectorizor(demonstrations):
-    vectorized_demos = []
-    for demo in demonstrations:
-        vectorized_demo = [[ob.data['robot']['x'], ob.data['robot']['y'], ob.data['robot']['theta']] for ob in demo]
-        vectorized_demos.append(vectorized_demo)
-    return vectorized_demos
+def demo_vectorizor(demo):
+    vectorized_demo = [[ob.data['robot']['x'], ob.data['robot']['y'], ob.data['robot']['theta']] for ob in demo.observations]
+    return vectorized_demo
 
 # def observation_xy_vectorizor(ob):
 #     return [ob.data['robot_state']['x'], ob.data['robot_state']['y']]
@@ -51,7 +49,7 @@ def extract_constraint_map_key(orderd_constraint_dict):
             constraint_key.append(2)
         if orderd_constraint_dict['c3'] is True:
             constraint_key.append(3)
-    return tuple(set(constraint_key))
+    return list(set(constraint_key))
 
 def publish_directed_point(publisher, position, angle, radius, color):
     data = {}
@@ -102,13 +100,14 @@ if __name__ == '__main__':
     #################################################
     # Import demonstration data and build the model #
     #################################################
-    filepath = os.path.join(FILE_DIR, "../../data/test/ipd_relax_2/*.json")
+    filepath = os.path.join(FILE_DIR, "../../data/test/demo_data_3/*.json")
     loaded_demonstration_data = load_json_files(filepath)
     # Convert imported data into Demonstrations and Observations
     demonstrations = []
     for datum in loaded_demonstration_data["data"]:
         observations = []
         for entry in datum:
+            entry['applied_constraints'] = extract_constraint_map_key(entry['applied_constraints'])
             observations.append(SimpleObservation(entry))
         demonstrations.append(Demonstration(observations))
     if len(demonstrations) == 0:
@@ -126,7 +125,7 @@ if __name__ == '__main__':
     labeled_initial_demos = demo_labeler.label(demonstrations)
     
     lfd = LfD2D(observation_xytheta_vectorizor)
-    lfd.build_keyframe_graph(labeled_initial_demos, .05)
+    lfd.build_keyframe_graph(labeled_initial_demos, .35)
     
     # The intemediate trajectory data is used to bias planning of segments between cosntraint intersection points.
     intermediate_trajectories = {key: [[o.data for o in segment] for segment in group]
@@ -155,7 +154,7 @@ if __name__ == '__main__':
             planning_G.add_nodes_from([(int(cur_node))])
             # Get TSR/Optimizer for use in the segment start/endpoint loop
             # if no optimizer exists, we simply project according to the required constraint
-            constraint_ids = extract_constraint_map_key(lfd.G.nodes[cur_node]["applied_constraints"])
+            constraint_ids = lfd.G.nodes[cur_node]["applied_constraints"]
             planning_G.nodes[int(cur_node)]["constraint_ids"] = constraint_ids
 
             
@@ -203,25 +202,25 @@ if __name__ == '__main__':
             if len(inter_trajs_data) == 0:
                 planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
             else:
-                planning_biasing_distribution = KernelDensityDistribution(bandwidth=.15)
+                planning_biasing_distribution = KernelDensityDistribution(bandwidth=.25)
                 planning_biasing_distribution.fit(inter_trajs_data)
                 planning_state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
         planning_G.edges[edge]["planning_state_space"] = planning_state_space
-        planning_G.edges[edge]['planning_tsr'] = c2tsr_map.get(planning_G.nodes[e1].get('constraint_ids', None), UnconstrainedTSR())
+        planning_G.edges[edge]['planning_tsr'] = c2tsr_map.get(tuple(planning_G.nodes[e1].get('constraint_ids', ())), UnconstrainedTSR())
 
     #     # generate a starting point, and a steering point, according to constraints (if applicable). 
     #     # check if the starting point for the segment has generated already:
         if  planning_G.nodes[e1].get('waypoint', None) is None:
             found = False
             while not found:
-                # sample a candidate point from the keyframe model
-                candidate_point = lfd.sample_from_keyframe(e1, n_samples=1)
+                # sample a candidate point uniformly
+                candidate_point = sample_uniform_xytheta()
                 
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
-                point_optimizer = optimization_map.get(planning_G.nodes[e1]['constraint_ids'], None)
+                point_optimizer = optimization_map.get(tuple(planning_G.nodes[e1]['constraint_ids']), None)
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
-                    tsr = c2tsr_map.get(planning_G.nodes[e1]['constraint_ids'], None)
+                    tsr = c2tsr_map.get(tuple(planning_G.nodes[e1]['constraint_ids']), None)
                     waypoint = tsr.project(candidate_point, None)
                     if waypoint is not None:
                         planning_G.nodes[e1]["waypoint"] = waypoint
@@ -246,13 +245,13 @@ if __name__ == '__main__':
             found = False
             while not found:
                 # sample a candidate point from the keyframe model
-                candidate_point = lfd.sample_from_keyframe(e2, 1)
+                candidate_point = sample_uniform_xytheta()
                 
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
-                point_optimizer = optimization_map.get(planning_G.nodes[e2]['constraint_ids'], None)
+                point_optimizer = optimization_map.get(tuple(planning_G.nodes[e2]['constraint_ids']), None)
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
-                    tsr = c2tsr_map.get(planning_G.nodes[e2]['constraint_ids'], None)
+                    tsr = c2tsr_map.get(tuple(planning_G.nodes[e2]['constraint_ids']), None)
                     waypoint = tsr.project(candidate_point, None)
                     if waypoint is not None:
                         planning_G.nodes[e2]["waypoint"] = waypoint
@@ -304,16 +303,7 @@ if __name__ == '__main__':
     
         full_trajectory = full_trajectory + path_points
     
-    # distanced_full_trajectory = []
-    # total_distance = 0
-    # for edge in list(zip(full_trajectory, full_trajectory[1:])):
-    #     print(edge)
-    #     distance = np.linalg.norm(np.array(edge[0][0:2]) - np.array(edge[1][0:2]))
-    #     # if distance < .5:
-    #     #     distance = 10 # this will make the angle take longer to move through since close together points are usually turning angle only
-    #     total_distance += distance
-    #     distanced_full_trajectory.append(edge[0] + [distance])
-    # timed_trajectory = [[.1, q[0], q[1], q[2]] for q in distanced_full_trajectory]
+
     curve = JointTrajectoryCurve()
     timed_trajectory = curve.generate_trajectory([np.array(entry) for entry in full_trajectory], move_time=MOVE_TIME, num_intervals=1)
     

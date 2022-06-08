@@ -22,8 +22,8 @@ def draw_circle_alpha(screen, color, center, radius):
 
 def draw_arrow_alpha(screen, color, pos, angle):
     angle = angle + 90
-    body_length = 15
-    width = 10
+    body_length = 20
+    width = 15
     # Create the triangle head around the origin
     head_verts = [
         pg.Vector2(0, width / 2),  # Center

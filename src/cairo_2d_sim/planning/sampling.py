@@ -54,3 +54,6 @@ class DistributionSampler():
     
     def _uniform_random_q(self, dimension_limits):
         return np.array([random.uniform(limit[0], limit[1]) for limit in dimension_limits])
+
+def sample_uniform_xytheta(dimension_limits=([0, 1800], [0, 1000], [0, 360])):
+    return np.array([random.uniform(limit[0], limit[1]) for limit in dimension_limits])
