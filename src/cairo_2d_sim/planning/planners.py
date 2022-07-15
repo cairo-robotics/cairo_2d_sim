@@ -61,6 +61,7 @@ class CRRT():
             q_target = self._random_config()
             q_near = self._neighbors(self.tree, q_target)
             q_proj = self._constrained_extend(tsr, q_near, q_target)
+            print(q_near, q_proj)
             if q_proj is not None:
                 self._add_vertex(self.tree, q_proj)
                 # print(q_near, q_proj)
@@ -91,7 +92,7 @@ class CRRT():
     def _constrain_config(self, tsr, q_target, q_near)              :
         # these functions can be very problem specific. For now we'll just assume the most very basic form.
         # futre implementations might favor injecting the constrain_config function 
-        return project_config(tsr, q_target, q_near, self.extension_distance)
+        return project_config(tsr, q_target, q_near)
     
 
     def _extract_graph_path(self, tree=None, from_idx=None, to_idx=None):

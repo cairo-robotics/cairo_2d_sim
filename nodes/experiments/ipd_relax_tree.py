@@ -14,13 +14,13 @@ import networkx as nx
 
 from cairo_2d_sim.planning.distribution import KernelDensityDistribution
 from cairo_2d_sim.planning.optimization import  DualIntersectionWithTargetingOptimization, SingleIntersectionWithTargetingOptimization
-from cairo_2d_sim.planning.constraints import UnconstrainedTreeTSR, LineConstraintTreeTSR, DualLineTargetingConstraintTreeTSR
+from cairo_2d_sim.planning.constraints import UnconstrainedTSR, LineTSR, DualLineTargetingTSR
 from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, Holonomic2DBiasedStateSpace, StateValidityChecker
 from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_lerp, JointTrajectoryCurve
 from cairo_2d_sim.planning.planners import CRRT
 from cairo_2d_sim.msg import Pose2DStamped
 
-from cairo_lfd.core.environment import SimpleObservation, Demonstration
+from cairo_lfd.core.environment import Observation, Demonstration
 from cairo_lfd.core.lfd import LfD2D
 from cairo_lfd.data.alignment import DemonstrationAlignment
 from cairo_lfd.data.labeling import DemonstrationLabler
@@ -84,10 +84,10 @@ if __name__ == '__main__':
     # TSR's for each line Constraint #
     ##################################
     c2tsr_map = {}
-    c2tsr_map[()] = UnconstrainedTreeTSR()
-    c2tsr_map[(1,)] = LineConstraintTreeTSR((405, 105), (405, 805))
-    c2tsr_map[(2,)] = DualLineTargetingConstraintTreeTSR([405, 100], [1205, 100], [404, 700], [1205, 700], [800, 500])
-    c2tsr_map[(3,)] = LineConstraintTreeTSR((1205, 105), (1195, 505))
+    c2tsr_map[()] = UnconstrainedTSR()
+    c2tsr_map[(1,)] = LineTSR((405, 105), (405, 805))
+    c2tsr_map[(2,)] = DualLineTargetingTSR([405, 100], [1205, 100], [404, 700], [1205, 700], [800, 500])
+    c2tsr_map[(3,)] = LineTSR((1205, 105), (1195, 505))
 
     ######################################
     # Constraint Intersection Optimizers #
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     for datum in loaded_demonstration_data["data"]:
         observations = []
         for entry in datum:
-            observations.append(SimpleObservation(entry))
+            observations.append(Observation(entry))
         demonstrations.append(Demonstration(observations))
     if len(demonstrations) == 0:
         rospy.logwarn("No prior demonstration data to model!!")
@@ -207,7 +207,7 @@ if __name__ == '__main__':
                 planning_biasing_distribution.fit(inter_trajs_data)
                 planning_state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
         planning_G.edges[edge]["planning_state_space"] = planning_state_space
-        planning_G.edges[edge]['planning_tsr'] = c2tsr_map.get(planning_G.nodes[e1].get('constraint_ids', None), UnconstrainedPRMTSR())
+        planning_G.edges[edge]['planning_tsr'] = c2tsr_map.get(planning_G.nodes[e1].get('constraint_ids', None), UnconstrainedTSR())
 
     #     # generate a starting point, and a steering point, according to constraints (if applicable). 
     #     # check if the starting point for the segment has generated already:
@@ -222,7 +222,7 @@ if __name__ == '__main__':
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
                     tsr = c2tsr_map.get(planning_G.nodes[e1]['constraint_ids'], None)
-                    waypoint = tsr.project(candidate_point)
+                    waypoint = tsr.project(candidate_point, None)
                     if waypoint is not None:
                         planning_G.nodes[e1]["waypoint"] = waypoint
                         found = True
@@ -253,7 +253,7 @@ if __name__ == '__main__':
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
                     tsr = c2tsr_map.get(planning_G.nodes[e2]['constraint_ids'], None)
-                    waypoint = tsr.project(candidate_point)
+                    waypoint = tsr.project(candidate_point, None)
                     if waypoint is not None:
                         planning_G.nodes[e2]["waypoint"] = waypoint
                         found = True
@@ -289,13 +289,13 @@ if __name__ == '__main__':
         # state validity only checks if a poitn is epislong = 5 close to the start or goal. Too many points generated that close tostart and end creates cliques that the planner can not escape when plannign from start to end
         svc = StateValidityChecker(start, end)
         interp_fn = partial(parametric_xytheta_lerp, steps=10)
-        crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 50, 'e_step': .25, 'extension_distance': 50, 'smoothing_time': 10})
+        crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 50, 'extension_distance': 20, 'smoothing_time': 10})
         
         plan = crrt.plan(tsr, start, end)
         
         if len(plan) == 0:
             print("No initial plan found, ramping up number of points")
-            crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 50, 'e_step': .25, 'extension_distance': 50, 'smoothing_time': 10})
+            crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 50, 'extension_distance': 20, 'smoothing_time': 10})
         
             plan = crrt.plan(tsr, start, end)
         if len(plan) == 0:

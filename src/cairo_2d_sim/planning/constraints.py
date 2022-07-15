@@ -25,8 +25,9 @@ def val2str(value, decimal_places=8):
     return str([trunc(num, decimal_places) for num in value])
 
  
-def project_config(tsr, q_s, q_near, extension_distance):
-    return tsr.project(q_s, q_near, extension_distance)
+def project_config(tsr, q_s, q_near):
+    projected_point = tsr.project(q_s, q_near)
+    return projected_point
 
     
 class UnconstrainedTSR():

@@ -20,7 +20,7 @@ from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_ler
 from cairo_2d_sim.planning.planners import CPRM
 from cairo_2d_sim.msg import Pose2DStamped
 
-from cairo_lfd.core.environment import SimpleObservation, Demonstration
+from cairo_lfd.core.environment import Observation, Demonstration
 from cairo_lfd.core.lfd import LfD2D
 from cairo_lfd.data.alignment import DemonstrationAlignment
 from cairo_lfd.data.labeling import DemonstrationLabler
@@ -107,7 +107,7 @@ if __name__ == '__main__':
         observations = []
         for entry in datum:
             entry['applied_constraints'] = extract_constraint_map_key(entry['applied_constraints'])
-            observations.append(SimpleObservation(entry))
+            observations.append(Observation(entry))
         demonstrations.append(Demonstration(observations))
     if len(demonstrations) == 0:
         rospy.logwarn("No prior demonstration data to model!!")

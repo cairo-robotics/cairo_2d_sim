@@ -15,7 +15,8 @@ def success(trajectory, goal_point, error = .001):
     if euclidean(trajectory[-1] == goal_point):
         return True
     
-def adherance_to_function(trajectory, constraint_set):
+def adherance_to_function(trajectory_segments, constraint_evaluators):
+    # There should be a one to one mapping of segments to the constraint evaluators for evaluating adherance to function.
     pass
 
 def omega_set_distance(point, constraint):
