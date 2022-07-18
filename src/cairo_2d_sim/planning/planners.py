@@ -23,7 +23,7 @@ class CRRT():
         self.distance_fn = distance_fn
         self.smooth_path = params.get('smooth_path', False)
         self.epsilon = params.get('epsilon', (50, 10))
-        self.xy_extension_distance = params.get('extension_distance', 5)
+        self.xy_extension_distance = params.get('extension_distance', 10)
         self.smoothing_time = params.get('smoothing_time', 10)
         self.iters = 100000
     

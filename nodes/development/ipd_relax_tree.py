@@ -83,6 +83,8 @@ if __name__ == '__main__':
     ##################################
     # TSR's for each line Constraint #
     ##################################
+    # For the tree based planners, we perform extension within the TSRs since the projected point's angle will directly point to target
+    # and require the extended x y values first.
     c2tsr_map = {}
     c2tsr_map[()] = UnconstrainedTSR()
     c2tsr_map[(1,)] = LineTSR((405, 105), (405, 805))
