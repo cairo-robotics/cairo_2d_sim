@@ -23,7 +23,7 @@ class CRRT():
         self.distance_fn = distance_fn
         self.smooth_path = params.get('smooth_path', False)
         self.epsilon = params.get('epsilon', (50, 10))
-        self.extension_distance = params.get('extension_distance', 50)
+        self.xy_extension_distance = params.get('extension_distance', 5)
         self.smoothing_time = params.get('smoothing_time', 10)
         self.iters = 100000
     
@@ -61,12 +61,11 @@ class CRRT():
             q_target = self._random_config()
             q_near = self._neighbors(self.tree, q_target)
             q_proj = self._constrained_extend(tsr, q_near, q_target)
-            print(q_near, q_proj)
             if q_proj is not None:
                 self._add_vertex(self.tree, q_proj)
-                # print(q_near, q_proj)
                 # print(self._distance(q_near, q_proj))
                 self._add_edge(self.tree, q_near, q_proj, self._distance(q_near, q_proj))
+            # print(q_near, q_proj, self._distance(q_near, q_proj), self._equal(q_proj, self.goal_q))
             if q_proj is not None and self._equal(q_proj, self.goal_q):
                 self._add_vertex(self.tree, self.goal_q)
                 self._add_edge(self.tree, q_proj, self.goal_q, self._distance(q_proj, self.goal_q))
@@ -80,16 +79,17 @@ class CRRT():
         self.tree = ig.Graph(directed=True)
     
     def _constrained_extend(self, tsr, q_near, q_target):
-        projected_point =  self._constrain_config(tsr=tsr, q_target=q_target, q_near=q_near)
-        v1 = projected_point[0] - q_near[0]
-        v2 = projected_point[1] - q_near[1]
+        v1 = q_target[0] - q_near[0]
+        v2 = q_target[1] - q_near[1]
         v_norm = (v1**2 + v2**2)**.5
-        x_extension = min(abs(q_near[0] - projected_point[0]), abs(self.extension_distance * v1/v_norm))
-        y_extension = min(abs(q_near[1] - projected_point[1]), abs(self.extension_distance * v2/v_norm))
-        return [q_near[0] + x_extension, q_near[1] + y_extension, q_near[2]]
+        x_extension = self.xy_extension_distance * v1/v_norm
+        y_extension = self.xy_extension_distance * v2/v_norm
+        ext_target = [q_near[0] + x_extension, q_near[1] + y_extension, q_target[2]]
+        projected_point =  self._constrain_config(tsr=tsr, q_target=ext_target, q_near=q_near)
+        return projected_point
         
             
-    def _constrain_config(self, tsr, q_target, q_near)              :
+    def _constrain_config(self, tsr, q_target, q_near):
         # these functions can be very problem specific. For now we'll just assume the most very basic form.
         # futre implementations might favor injecting the constrain_config function 
         return project_config(tsr, q_target, q_near)
@@ -136,6 +136,7 @@ class CRRT():
 
     def _equal(self, q1, q2):
         if self.distance_fn(q1, q2) <= self.epsilon:
+            print("hey")
             return True
         return False
 

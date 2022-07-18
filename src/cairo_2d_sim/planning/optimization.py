@@ -150,7 +150,12 @@ class DualIntersectionWithTargetingOptimization():
             print('A: ' + str(A.value))
             print('Objective: ' + str(m.options.objfcnval))
             self.model.cleanup()
-            return [X.value[0], Y.value[0], T.value[0] % 360]
+            # Gekko doesn't have atan2 so we take either the reference angle or the opposite quadrant angle that is closes to the expected actual output.
+            if (theta_actual - T.value[0] % 360) < (theta_actual - (T.value[0] % 360 + 180)):
+                theta = T.value[0] % 360
+            else:
+                theta = (T.value[0] % 360) + 180
+            return [X.value[0], Y.value[0], theta]
         except Exception as e:
             print(e)
             self.model.cleanup()
@@ -219,7 +224,12 @@ class SingleIntersectionWithTargetingOptimization():
             print('Theta actual : ' + str(theta_actual))
             print('Objective: ' + str(m.options.objfcnval))
             self.model.cleanup()
-            return [X.value[0], Y.value[0], T.value[0] % 360]
+            # Gekko doesn't have atan2 so we take either the reference angle or the opposite quadrant angle that is closes to the expected actual output.
+            if (theta_actual - T.value[0] % 360) < (theta_actual - (T.value[0] % 360 + 180)):
+                theta = T.value[0] % 360
+            else:
+                theta = (T.value[0] % 360) + 180
+            return [X.value[0], Y.value[0], theta]
         except Exception as e:
             print(e)
             self.model.cleanup()
