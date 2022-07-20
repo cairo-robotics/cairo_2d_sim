@@ -74,17 +74,16 @@ if __name__ == '__main__':
     #############
     # CONSTANTS #
     #############
-    
     X_DOMAIN = [0, 1800]
     Y_DOMAIN = [0, 1000]
     THETA_DOMAIN = [0, 360]
-    MOVE_TIME = 20
+    MOVE_TIME = 10
+    EPSILON = 50
+    EXTENSION_DISTANCE = 50
     
     ##################################
     # TSR's for each line Constraint #
     ##################################
-    # For the tree based planners, we perform extension within the TSRs since the projected point's angle will directly point to target
-    # and require the extended x y values first.
     c2tsr_map = {}
     c2tsr_map[()] = UnconstrainedTSR()
     c2tsr_map[(1,)] = LineTSR((405, 105), (405, 805))
@@ -97,7 +96,6 @@ if __name__ == '__main__':
     optimization_map = {}
     optimization_map[(1, 2)] = DualIntersectionWithTargetingOptimization((405, 105), (405, 805), (800, 500))
     optimization_map[(2, 3)] = SingleIntersectionWithTargetingOptimization((1205, 100), (800, 500))
-    
     
     #################################################
     #         BUILD THE KEYFRAME MODEL              #
@@ -148,6 +146,7 @@ if __name__ == '__main__':
     
     # The start configuration. 
     start = (100, 500, 360)
+
     # Create a starting node for the planning graph.
     planning_G.add_nodes_from([("start", {"waypoint": start, "tsr": c2tsr_map[(1,)]})])
 
@@ -160,7 +159,6 @@ if __name__ == '__main__':
             constraint_ids = extract_constraint_map_key(lfd.G.nodes[cur_node]["applied_constraints"])
             planning_G.nodes[int(cur_node)]["constraint_ids"] = constraint_ids
 
-            
     # The goal configuration. 
     goal = (1205, 500, 360)
     # Create a goaL node for the planning graph.
@@ -172,15 +170,14 @@ if __name__ == '__main__':
     for edge in list(zip(planning_sequence, planning_sequence[1:])):
         planning_G.add_edge(edge[0], edge[1], tsr=c2tsr_map[(1,)])
        
-    # ###################################################
-    # #           SEQUENTIAL MANIFOLD PLANNING          #
-    # ###################################################
-    # # Now that we've defined our planning problem     #
-    # # withing a planning graph, which defines our SMP #
-    # # problem. We perform IPD relaxation and actual   #
-    # # planning.                                       #
-    # ###################################################
-    
+    ####################################################
+    #           SEQUENTIAL MANIFOLD PLANNING          #
+    ####################################################
+    # Now that we've defined our planning problem     #
+    # withing a planning graph, which defines our SMP #
+    # problem. We perform IPD relaxation and actual   #
+    # planning.                                       #
+    ####################################################
 
     full_trajectory = []
     
@@ -211,12 +208,12 @@ if __name__ == '__main__':
         planning_G.edges[edge]["planning_state_space"] = planning_state_space
         planning_G.edges[edge]['planning_tsr'] = c2tsr_map.get(planning_G.nodes[e1].get('constraint_ids', None), UnconstrainedTSR())
 
-    #     # generate a starting point, and a steering point, according to constraints (if applicable). 
-    #     # check if the starting point for the segment has generated already:
+        # generate a starting point, and a steering point, according to constraints (if applicable). 
+        # check if the starting point for the segment has generated already:
         if  planning_G.nodes[e1].get('waypoint', None) is None:
             found = False
             while not found:
-                # sample a candidate point from the keyframe model
+                # sample a candidate point from the transition keyframe
                 candidate_point = lfd.sample_from_keyframe(e1, n_samples=1)
                 
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
@@ -247,7 +244,7 @@ if __name__ == '__main__':
         if  planning_G.nodes[e2].get('waypoint', None) is None:
             found = False
             while not found:
-                # sample a candidate point from the keyframe model
+                # sample a candidate point randomly from the transition keyframe
                 candidate_point = lfd.sample_from_keyframe(e2, 1)
                 
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
@@ -291,13 +288,13 @@ if __name__ == '__main__':
         # state validity only checks if a poitn is epislong = 5 close to the start or goal. Too many points generated that close tostart and end creates cliques that the planner can not escape when plannign from start to end
         svc = StateValidityChecker(start, end)
         interp_fn = partial(parametric_xytheta_lerp, steps=10)
-        crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 50, 'extension_distance': 20, 'smoothing_time': 10})
+        crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': EPSILON, 'extension_distance': EXTENSION_DISTANCE})
         
         plan = crrt.plan(tsr, start, end)
         
         if len(plan) == 0:
             print("No initial plan found, ramping up number of points")
-            crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': 50, 'extension_distance': 20, 'smoothing_time': 10})
+            crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': EPSILON, 'extension_distance': EXTENSION_DISTANCE})
         
             plan = crrt.plan(tsr, start, end)
         if len(plan) == 0:
