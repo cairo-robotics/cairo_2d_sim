@@ -34,19 +34,27 @@ class CRRT():
     
         """
         self.start_q = start_q
+        self.start_name = val2str(start_q)
         self.goal_q = goal_q
-        self._initialize_tree(start_q, goal_q)
-        self.tree = self.crrt(tsr)
-        print("Size of tree: {}".format(len(self.tree.vs)))
-        if self.tree is not None:
-            graph_path = self._extract_graph_path()
-            if len(graph_path) == 1:
-                return None
-            else:
-                if self.smooth_path:
-                    self._smooth_path(graph_path, tsr, self.smoothing_time)
-                #print("Graph path found: {}".format(graph_path))
-                return self._extract_graph_path()
+        self.goal_name = val2str(goal_q)
+        if np.linalg.norm(np.array(start_q[0:2]) - np.array(goal_q[0:2])) < 10:
+            self._add_vertex(self.tree, start_q)
+            self._add_vertex(self.tree, goal_q)
+            self._add_edge(self.tree, start_q, goal_q, self._distance(start_q, goal_q))
+            return self._extract_graph_path()
+        else:
+            self._initialize_tree(start_q, goal_q)
+            self.tree = self.crrt(tsr)
+            print("Size of tree: {}".format(len(self.tree.vs)))
+            if self.tree is not None:
+                graph_path = self._extract_graph_path()
+                if len(graph_path) == 1:
+                    return None
+                else:
+                    if self.smooth_path:
+                        self._smooth_path(graph_path, tsr, self.smoothing_time)
+                    #print("Graph path found: {}".format(graph_path))
+                    return self._extract_graph_path()
         # plan = self.get_plan(graph_path)
         # #self._smooth(path)
         # return plan
@@ -136,7 +144,6 @@ class CRRT():
 
     def _equal(self, q1, q2):
         if self.distance_fn(q1, q2) <= self.epsilon:
-            print("hey")
             return True
         return False
 
