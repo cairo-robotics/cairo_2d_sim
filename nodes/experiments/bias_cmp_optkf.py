@@ -18,6 +18,7 @@ from cairo_2d_sim.planning.constraints import UnconstrainedTSR, LineTSR, DualLin
 from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, Holonomic2DBiasedStateSpace, StateValidityChecker
 from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_lerp, JointTrajectoryCurve
 from cairo_2d_sim.planning.planners import CRRT
+from cairo_2d_sim.evaluation.eval import IPDRelaxEvaluation
 from cairo_2d_sim.msg import Pose2DStamped
 
 from cairo_lfd.core.environment import Observation, Demonstration
@@ -32,44 +33,44 @@ FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 def demo_vectorizor(demonstrations):
     vectorized_demos = []
     for demo in demonstrations:
-        vectorized_demo = [[ob.data['robot']['x'], ob.data['robot']['y'], ob.data['robot']['theta']] for ob in demo]
+        vectorized_demo = [[ob.data["robot"]["x"], ob.data["robot"]["y"], ob.data["robot"]["theta"]] for ob in demo]
         vectorized_demos.append(vectorized_demo)
     return vectorized_demos
 
 # def observation_xy_vectorizor(ob):
-#     return [ob.data['robot_state']['x'], ob.data['robot_state']['y']]
+#     return [ob.data["robot_state"]["x"], ob.data["robot_state"]["y"]]
 
 def observation_xytheta_vectorizor(ob):
-    return [ob.data['robot']['x'], ob.data['robot']['y'], ob.data['robot']['theta']]
+    return [ob.data["robot"]["x"], ob.data["robot"]["y"], ob.data["robot"]["theta"]]
 
 def extract_constraint_map_key(orderd_constraint_dict):
     constraint_key = []
     for key in orderd_constraint_dict.keys():
-        if orderd_constraint_dict['c1'] is True:
+        if orderd_constraint_dict["c1"] is True:
             constraint_key.append(1)
-        if orderd_constraint_dict['c2'] is True:
+        if orderd_constraint_dict["c2"] is True:
             constraint_key.append(2)
-        if orderd_constraint_dict['c3'] is True:
+        if orderd_constraint_dict["c3"] is True:
             constraint_key.append(3)
     return tuple(set(constraint_key))
 
 def publish_directed_point(publisher, position, angle, radius, color):
     data = {}
-    data['x'] = position[0]
-    data['y'] = position[1]
-    data['radius'] = radius
-    data['angle'] = angle
-    data['color'] = color
+    data["x"] = position[0]
+    data["y"] = position[1]
+    data["radius"] = radius
+    data["angle"] = angle
+    data["color"] = color
     data_str = json.dumps(data)
     publisher.publish(data_str)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     
     ###############
     # ROS THINGS  #
     ##############
     rospy.init_node("optimization_node")
-    circle_static_pub = rospy.Publisher('/cairo_2d_sim/create_directional_circle_static', String, queue_size=1)
+    circle_static_pub = rospy.Publisher("/cairo_2d_sim/create_directional_circle_static", String, queue_size=1)
         
     #############
     # CONSTANTS #
@@ -79,9 +80,22 @@ if __name__ == '__main__':
     Y_DOMAIN = [0, 1000]
     THETA_DOMAIN = [0, 360]
     MOVE_TIME = 10
-    EPSILON = 50
+    EPSILON = 25
     EXTENSION_DISTANCE = 50
+    EVAL_OUTPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/bias_optfk/output")
+    GOLD_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/bias_optfk/input/gold/*.json")
+    TRAINING_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/bias_optfk/input/demos_1/*.json")
+
+    ##############
+    # Evaluation #
+    ##############
+    # Create the gold demonstration trajectory
+    gold_demo_data = load_json_files(GOLD_DEMO_INPUT_DIRECTORY)["data"][0]
+    gold_demo_traj = [[entry["robot"]["x"], entry["robot"]["y"], entry["robot"]["theta"]] for entry in gold_demo_data]
     
+    evaluation = IPDRelaxEvaluation(EVAL_OUTPUT_DIRECTORY)
+    EVAL_CONSTRAINT_ORDER = []
+
     ##################################
     # TSR's for each line Constraint #
     ##################################
@@ -103,8 +117,7 @@ if __name__ == '__main__':
     #################################################
     # Import demonstration data and build the model #
     #################################################
-    filepath = os.path.join(FILE_DIR, "../../data/test/ipd_relax_2/*.json")
-    loaded_demonstration_data = load_json_files(filepath)
+    loaded_demonstration_data = load_json_files(TRAINING_DEMO_INPUT_DIRECTORY)
     # Convert imported data into Demonstrations and Observations
     demonstrations = []
     for datum in loaded_demonstration_data["data"]:
@@ -131,7 +144,7 @@ if __name__ == '__main__':
     
     # The intemediate trajectory data is used to bias planning of segments between cosntraint intersection points.
     intermediate_trajectories = {key: [[o.data for o in segment] for segment in group]
-                                             for key, group in lfd.G.graph['intermediate_trajectories'].items()}
+                                             for key, group in lfd.G.graph["intermediate_trajectories"].items()}
                 
     ##############################################
     #          CREATE A PLANNING GRAPH          #
@@ -159,6 +172,7 @@ if __name__ == '__main__':
             # if no optimizer exists, we simply project according to the required constraint
             constraint_ids = extract_constraint_map_key(lfd.G.nodes[cur_node]["applied_constraints"])
             planning_G.nodes[int(cur_node)]["constraint_ids"] = constraint_ids
+            EVAL_CONSTRAINT_ORDER.append(constraint_ids)
 
     # The goal configuration. 
     goal = (1205, 500, 360)
@@ -183,6 +197,9 @@ if __name__ == '__main__':
     full_trajectory = []
     
     # Here we use the keyframe planning order, creating a sequential pairing of keyframe ids.
+    
+    # Start overall planning time:
+    evaluation.start_timer("planning_time")
     for edge in list(zip(planning_sequence, planning_sequence[1:])):
         e1 = edge[0]
         e2 = edge[1]
@@ -190,14 +207,14 @@ if __name__ == '__main__':
         # Generate the biasing state space for the edge:
         # create sampling biased State Space for use by the planner using the current keyframes upcoming segment intermediate trajectory data.
         if e1 == "start" or e2 == "goal":
-            # We don't have intermediate trajectories from these points
+            # We don"t have intermediate trajectories from these points
             planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
         else:
-            # The intermediate trajectories are index as the data the lead up to the node. So for edge e1 to e2, we use the e2 intermediate trajcewctory data. That is, the trajectory data that lead UP to e2.
+            # The intermediate trajectories are indexed as the data that lead up to the node. So for edge e1 to e2, we use the e2 intermediate trajectory data. That is, the trajectory data the connects node e1 to e2.
             inter_trajs = intermediate_trajectories[int(e2)]
             inter_trajs_data = []
             for traj in inter_trajs:
-                inter_trajs_data = inter_trajs_data + [[obsv['robot']['x'], obsv['robot']['y'], obsv['robot']['theta']]  for obsv in traj]
+                inter_trajs_data = inter_trajs_data + [[obsv["robot"]["x"], obsv["robot"]["y"], obsv["robot"]["theta"]]  for obsv in traj]
                 inter_trajs_data.sort()
                 inter_trajs_data = list(k for k, _ in itertools.groupby(inter_trajs_data))
             if len(inter_trajs_data) == 0:
@@ -207,21 +224,22 @@ if __name__ == '__main__':
                 planning_biasing_distribution.fit(inter_trajs_data)
                 planning_state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
         planning_G.edges[edge]["planning_state_space"] = planning_state_space
-        planning_G.edges[edge]['planning_tsr'] = c2tsr_map.get(planning_G.nodes[e1].get('constraint_ids', None), UnconstrainedTSR())
+        planning_G.edges[edge]["planning_tsr"] = c2tsr_map.get(planning_G.nodes[e1].get("constraint_ids", None), UnconstrainedTSR())
 
         # generate a starting point, and a steering point, according to constraints (if applicable). 
         # check if the starting point for the segment has generated already:
-        if  planning_G.nodes[e1].get('waypoint', None) is None:
+        if  planning_G.nodes[e1].get("waypoint", None) is None:
             found = False
             while not found:
+                evaluation.start_timer("steering_point_generation_1")
                 # sample a candidate point from the transition keyframe
                 candidate_point = lfd.sample_from_keyframe(e1, n_samples=1)
                 
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
-                point_optimizer = optimization_map.get(planning_G.nodes[e1]['constraint_ids'], None)
+                point_optimizer = optimization_map.get(planning_G.nodes[e1]["constraint_ids"], None)
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
-                    tsr = c2tsr_map.get(planning_G.nodes[e1]['constraint_ids'], None)
+                    tsr = c2tsr_map.get(planning_G.nodes[e1]["constraint_ids"], None)
                     waypoint = tsr.project(candidate_point, None)
                     if waypoint is not None:
                         planning_G.nodes[e1]["waypoint"] = waypoint
@@ -235,24 +253,26 @@ if __name__ == '__main__':
                         found = True
                     else:
                         continue
+                evaluation.add_steering_point_gen_time(evaluation.end_timer("steering_point_generation_1"))
                 # Send the used candidate point to the replay renderer:
                 publish_directed_point(circle_static_pub, candidate_point[0:2], candidate_point[2], 8, [255, 25, 0])
                 # Send the corrected point
                 publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
                 start = list(waypoint)
         else:
-            start = list(planning_G.nodes[e1]['waypoint'])
-        if  planning_G.nodes[e2].get('waypoint', None) is None:
+            start = list(planning_G.nodes[e1]["waypoint"])
+        if  planning_G.nodes[e2].get("waypoint", None) is None:
             found = False
             while not found:
+                evaluation.start_timer("steering_point_generation_2")
                 # sample a candidate point randomly from the transition keyframe
                 candidate_point = lfd.sample_from_keyframe(e2, 1)
                 
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
-                point_optimizer = optimization_map.get(planning_G.nodes[e2]['constraint_ids'], None)
+                point_optimizer = optimization_map.get(planning_G.nodes[e2]["constraint_ids"], None)
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
-                    tsr = c2tsr_map.get(planning_G.nodes[e2]['constraint_ids'], None)
+                    tsr = c2tsr_map.get(planning_G.nodes[e2]["constraint_ids"], None)
                     waypoint = tsr.project(candidate_point, None)
                     if waypoint is not None:
                         planning_G.nodes[e2]["waypoint"] = waypoint
@@ -266,6 +286,7 @@ if __name__ == '__main__':
                         found = True
                     else:
                         continue
+                evaluation.add_steering_point_gen_time(evaluation.end_timer("steering_point_generation_2"))
                  # Send to the game renderer:
                 publish_directed_point(circle_static_pub, candidate_point[0:2], candidate_point[2], 8, [255, 25, 0])
                 # Send the updated correct point
@@ -273,53 +294,51 @@ if __name__ == '__main__':
 
                 end = list(waypoint)
         else:
-            end = list(planning_G.nodes[e2]['waypoint'])
-        print("\n\nSTART AND END")
+            end = list(planning_G.nodes[e2]["waypoint"])
         print(e1, e2)
         print(start, end)
-        if e2 != 'goal':
-            print(planning_G.nodes[e2]['constraint_ids'])
-        print(planning_G.edges[edge]['planning_tsr'])
+        if e2 != "goal":
+            print(planning_G.nodes[e2]["constraint_ids"])
+        print(planning_G.edges[edge]["planning_tsr"])
         print()
         
         # Constrained motion planning for specific manifold segment
-        state_space = planning_G.edges[edge]['planning_state_space']
-        tsr = planning_G.edges[edge]['planning_tsr']
+        state_space = planning_G.edges[edge]["planning_state_space"]
+        tsr = planning_G.edges[edge]["planning_tsr"]
 
         # state validity only checks if a poitn is epislong = 5 close to the start or goal. Too many points generated that close tostart and end creates cliques that the planner can not escape when plannign from start to end
         svc = StateValidityChecker(start, end)
         interp_fn = partial(parametric_xytheta_lerp, steps=10)
-        crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': EPSILON, 'extension_distance': EXTENSION_DISTANCE})
-        
-        plan = crrt.plan(tsr, start, end)
-        
-        if len(plan) == 0:
-            print("No initial plan found, ramping up number of points")
-            crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {'smooth_path': False, 'epsilon': EPSILON, 'extension_distance': EXTENSION_DISTANCE})
-        
+        try:
+            crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {"smooth_path": False, "epsilon": EPSILON, "extension_distance": EXTENSION_DISTANCE})
+            
             plan = crrt.plan(tsr, start, end)
-        if len(plan) == 0:
-            raise Exception("One segment failed to find a plan")
-        path_points = crrt.get_path(plan)
+            
+            if len(plan) == 0:
+                print("No initial plan found, ramping up number of points")
+                crrt = CRRT(state_space, svc, interp_fn, xytheta_distance, {"smooth_path": False, "epsilon": EPSILON, "extension_distance": EXTENSION_DISTANCE})
+            
+                plan = crrt.plan(tsr, start, end)
+            if len(plan) == 0:
+                break
+            path_points = crrt.get_path(plan)
+        
+            full_trajectory = full_trajectory + path_points
+        except Exception:
+            break
+    evaluation.add_planning_time(evaluation.end_timer("planning_time"))
     
-        full_trajectory = full_trajectory + path_points
-    
-    # distanced_full_trajectory = []
-    # total_distance = 0
-    # for edge in list(zip(full_trajectory, full_trajectory[1:])):
-    #     print(edge)
-    #     distance = np.linalg.norm(np.array(edge[0][0:2]) - np.array(edge[1][0:2]))
-    #     # if distance < .5:
-    #     #     distance = 10 # this will make the angle take longer to move through since close together points are usually turning angle only
-    #     total_distance += distance
-    #     distanced_full_trajectory.append(edge[0] + [distance])
-    # timed_trajectory = [[.1, q[0], q[1], q[2]] for q in distanced_full_trajectory]
     curve = JointTrajectoryCurve()
     timed_trajectory = curve.generate_trajectory([np.array(entry) for entry in full_trajectory], move_time=MOVE_TIME, num_intervals=1)
+    trajectory = [point[1] for point in timed_trajectory]
     
+    evaluation.add_path_length(trajectory)
+    evaluation.add_success(trajectory, goal)
+    evaluation.add_a2s([p[:2] for p in trajectory], [p[:2] for p in gold_demo_traj])
+    evaluation.export()
     # Execute
         
-    state_pub = rospy.Publisher('/cairo_2d_sim/robot_state_replay', Pose2DStamped, queue_size=1)
+    state_pub = rospy.Publisher("/cairo_2d_sim/robot_state_replay", Pose2DStamped, queue_size=1)
     
     prior_time = timed_trajectory[0][0]
     for point in timed_trajectory:
