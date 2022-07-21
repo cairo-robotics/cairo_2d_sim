@@ -35,6 +35,9 @@ class UnconstrainedTSR():
     def validate(self, _):
         return True
     
+    def distance(self, p):
+        return 0.0
+    
     def project(self, p, _):
         return p
  
@@ -46,6 +49,12 @@ class LineTSR():
         self.p2 = np.array(p2)
         if np.sum((self.p1-self.p2)**2) == 0:
             raise Exception("p1 and p2 are the same points, no line exists")
+    
+    def distance(self, p):
+        M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
+        t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M)
+        line_proj = self.p1[0:2] + np.dot(t0, M)
+        return np.linalg.norm(line_proj - p)
     
     def validate(self, p):
         M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
@@ -77,6 +86,12 @@ class LineTargetingTSR():
         self.target = np.array(target)
         if np.sum((self.p1-self.p2)**2) == 0:
             raise Exception("p1 and p2 are the same points, no line exists")
+    
+    def distance(self, p):
+        M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
+        t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M)
+        line_proj = self.p1[0:2] + np.dot(t0, M)
+        return np.linalg.norm(line_proj - p)
     
     def validate(self, p):
         M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
