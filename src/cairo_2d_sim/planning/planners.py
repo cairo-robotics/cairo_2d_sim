@@ -25,7 +25,7 @@ class CRRT():
         self.epsilon = params.get('epsilon', (50, 10))
         self.xy_extension_distance = params.get('extension_distance', 10)
         self.smoothing_time = params.get('smoothing_time', 10)
-        self.iters = 100000
+        self.iters = 10000
     
     def plan(self, tsr, start_q, goal_q):
         """ 
