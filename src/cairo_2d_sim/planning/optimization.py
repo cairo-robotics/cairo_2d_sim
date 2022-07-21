@@ -16,7 +16,7 @@ class DualIntersectionOptimization():
 
     
     def solve(self, keyframe_point):
-        m = GEKKO() # Initialize gekko
+        m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
         # optional solver settings with APOPT
@@ -90,7 +90,7 @@ class DualIntersectionWithTargetingOptimization():
 
     
     def solve(self, keyframe_point):
-        m = GEKKO() # Initialize gekko
+        m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
         # optional solver settings with APOPT
@@ -173,7 +173,7 @@ class SingleIntersectionWithTargetingOptimization():
 
     
     def solve(self, keyframe_point):
-        m = GEKKO() # Initialize gekko
+        m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
         # optional solver settings with APOPT
@@ -246,7 +246,7 @@ class SingleIntersectionOptimization():
 
     
     def solve(self, keyframe_point):
-        m = GEKKO() # Initialize gekko
+        m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
         # optional solver settings with APOPT
