@@ -1,5 +1,6 @@
 
 import random
+import time
 
 import numpy as np
 import igraph as ig
@@ -10,7 +11,11 @@ from cairo_2d_sim.planning.curve import cumulative_distance
 
 __all__ = ['CRRT', 'CPRM']
 
+class PlanningTimeoutException(Exception):
+    pass
 
+class MaxItersException(Exception):
+    pass
 
 class CRRT():
 
@@ -25,7 +30,8 @@ class CRRT():
         self.epsilon = params.get('epsilon', (50, 10))
         self.xy_extension_distance = params.get('extension_distance', 10)
         self.smoothing_time = params.get('smoothing_time', 10)
-        self.iters = 10000
+        self.max_iters = params.get('max_iters', 1000)
+        self.timeout_in_seconds = params.get('planning_timeout', 10)
     
     def plan(self, tsr, start_q, goal_q):
         """ 
@@ -62,10 +68,16 @@ class CRRT():
     def crrt(self, tsr):
         iters=0
         continue_to_plan = True
+         
+        tick = time.perf_counter()
+    
         while continue_to_plan:
             iters += 1
-            if iters > self.iters:
-                raise Exception("Max iterations reached for CRRT")
+            tock = time.perf_counter()
+            if iters > self.max_iters:
+                raise  MaxItersException("Max iterations reached for CRRT")
+            if tock - tick > self.timeout_in_seconds:
+                raise PlanningTimeoutException()
             q_target = self._random_config()
             q_near = self._neighbors(self.tree, q_target)
             q_proj = self._constrained_extend(tsr, q_near, q_target)
@@ -95,7 +107,6 @@ class CRRT():
         ext_target = [q_near[0] + x_extension, q_near[1] + y_extension, q_target[2]]
         projected_point =  self._constrain_config(tsr=tsr, q_target=ext_target, q_near=q_near)
         return projected_point
-        
             
     def _constrain_config(self, tsr, q_target, q_near):
         # these functions can be very problem specific. For now we'll just assume the most very basic form.
@@ -141,7 +152,6 @@ class CRRT():
         self.goal_name = val2str(goal_q)
         self._add_vertex(self.tree, start_q)
    
-
     def _equal(self, q1, q2):
         if self.distance_fn(q1, q2) <= self.epsilon:
             return True

@@ -154,7 +154,7 @@ class DualIntersectionWithTargetingOptimization():
             if (theta_actual - T.value[0] % 360) < (theta_actual - (T.value[0] % 360 + 180)):
                 theta = T.value[0] % 360
             else:
-                theta = (T.value[0] % 360) + 180
+                theta = ((T.value[0] % 360) + 180) % 360
             return [X.value[0], Y.value[0], theta]
         except Exception as e:
             print(e)
@@ -228,7 +228,7 @@ class SingleIntersectionWithTargetingOptimization():
             if (theta_actual - T.value[0] % 360) < (theta_actual - (T.value[0] % 360 + 180)):
                 theta = T.value[0] % 360
             else:
-                theta = (T.value[0] % 360) + 180
+                theta = ((T.value[0] % 360) + 180) % 360
             return [X.value[0], Y.value[0], theta]
         except Exception as e:
             print(e)
