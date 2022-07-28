@@ -6,7 +6,7 @@ import pygame as pg
 import rospy
 from std_msgs.msg import String
 
-from cairo_2d_sim.model.statics import DirectionalCircleStatic
+from cairo_2d_sim.model.statics import DirectionalCircleStatic, LineStatic
 from cairo_2d_sim.display.display import Display
 from cairo_2d_sim.msg import MenuCommands
 
@@ -87,7 +87,8 @@ class Replay():
         }
         self.menu_commands = rospy.Subscriber('/cairo_2d_sim/menu_commands', MenuCommands, self._menu_commands_cb)
         self.circle_static_sub = rospy.Subscriber('/cairo_2d_sim/create_directional_circle_static', String, self._create_directional_circle_static_cb)
-        
+        self.line_static_sub = rospy.Subscriber('/cairo_2d_sim/create_line_static', String, self._create_line_static_cb)
+
     def _update_toggles(self):
         for toggle in self.toggles:
             toggle.update()
@@ -102,6 +103,12 @@ class Replay():
     def _create_directional_circle_static_cb(self, msg):
         d = json.loads(msg.data)
         new_static = DirectionalCircleStatic(d['x'], d['y'], d['angle'], d['radius'], d['color'])
+        self.statics.append(new_static)
+        self.display.update_statics(self.statics)
+    
+    def _create_line_static_cb(self, msg):
+        d = json.loads(msg.data)
+        new_static = LineStatic(d['x1'], d['y1'], d['x2'], d['y2'], d['color'])
         self.statics.append(new_static)
         self.display.update_statics(self.statics)
     

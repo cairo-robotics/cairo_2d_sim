@@ -27,8 +27,8 @@ class CRRT():
         self.interp_fn = interpolation_fn
         self.distance_fn = distance_fn
         self.smooth_path = params.get('smooth_path', False)
-        self.epsilon = params.get('epsilon', (50, 10))
-        self.xy_extension_distance = params.get('extension_distance', 10)
+        self.epsilon = params.get('epsilon', 50)
+        self.xy_extension_distance = params.get('extension_distance', 25)
         self.smoothing_time = params.get('smoothing_time', 10)
         self.max_iters = params.get('max_iters', 1000)
         self.timeout_in_seconds = params.get('planning_timeout', 10)
@@ -43,7 +43,7 @@ class CRRT():
         self.start_name = val2str(start_q)
         self.goal_q = goal_q
         self.goal_name = val2str(goal_q)
-        if np.linalg.norm(np.array(start_q[0:2]) - np.array(goal_q[0:2])) < 10:
+        if np.linalg.norm(np.array(start_q[0:2]) - np.array(goal_q[0:2])) < self.epsilon:
             self._add_vertex(self.tree, start_q)
             self._add_vertex(self.tree, goal_q)
             self._add_edge(self.tree, start_q, goal_q, self._distance(start_q, goal_q))
@@ -99,11 +99,12 @@ class CRRT():
         self.tree = ig.Graph(directed=True)
     
     def _constrained_extend(self, tsr, q_near, q_target):
+        extend_distance = min(self.xy_extension_distance, abs(np.linalg.norm(np.array(q_near[:2]) - np.array(q_target[0:2]))))
         v1 = q_target[0] - q_near[0]
         v2 = q_target[1] - q_near[1]
         v_norm = (v1**2 + v2**2)**.5
-        x_extension = self.xy_extension_distance * v1/v_norm
-        y_extension = self.xy_extension_distance * v2/v_norm
+        x_extension = extend_distance * v1/v_norm
+        y_extension = extend_distance * v2/v_norm
         ext_target = [q_near[0] + x_extension, q_near[1] + y_extension, q_target[2]]
         projected_point =  self._constrain_config(tsr=tsr, q_target=ext_target, q_near=q_near)
         return projected_point
@@ -136,11 +137,12 @@ class CRRT():
             path = path + seg
         return path
 
-    def _neighbors(self, tree, q_s, fraction_random=.1):
+    def _neighbors(self, tree, q_s, fraction_random=0.0):
         if len(tree.vs) == 1:
             return [v for v in tree.vs][0]['value']
         if random.random() <= fraction_random:
             return random.choice([v for v in tree.vs])['value']
+        # sort on distance, get closest point value from ascending order sort.
         return sorted([v for v in tree.vs], key= lambda vertex: self._distance(vertex['value'], q_s))[0]['value']
 
     def _random_config(self):

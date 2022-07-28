@@ -226,9 +226,11 @@ def parametric_xytheta_lerp(q0, q1, steps):
 
 def xytheta_distance(q0, q1):
     euclid_distance = abs(np.linalg.norm(np.array(q0[:2]) - np.array(q1[0:2])))
+    # if euclid_distance > 360:
+    #     return euclid_distance
     theta_diff = q0[2] - q1[2]
     theta_delta = abs((theta_diff + 180) % 360 - 180)
-    return euclid_distance + theta_delta
+    return .9 * euclid_distance + .1 * theta_delta
 
 class JointTrajectoryCurve():
     

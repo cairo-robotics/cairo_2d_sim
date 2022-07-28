@@ -18,7 +18,7 @@ from cairo_2d_sim.planning.constraints import UnconstrainedTSR, LineTSR, DualLin
 from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, Holonomic2DBiasedStateSpace, StateValidityChecker
 from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_lerp, JointTrajectoryCurve
 from cairo_2d_sim.planning.planners import CRRT, PlanningTimeoutException, MaxItersException
-from cairo_2d_sim.evaluation.eval import IPDRelaxEvaluation
+from cairo_2d_sim.evaluation.eval import IPDRelaxEvaluationTrial, IPDRelaxEvaluation
 from cairo_2d_sim.msg import Pose2DStamped, MenuCommands
 
 from cairo_lfd.core.environment import Observation, Demonstration
@@ -64,15 +64,26 @@ def publish_directed_point(publisher, position, angle, radius, color):
     data_str = json.dumps(data)
     publisher.publish(data_str)
 
+def publish_line(publisher, pos1, pos2, color):
+    data = {}
+    data["x1"] = pos1[0]
+    data["y1"] = pos1[1]
+    data["x2"] = pos2[0]
+    data["y2"] = pos2[1]
+    data["color"] = color
+    data_str = json.dumps(data)
+    publisher.publish(data_str)
+
 if __name__ == "__main__":
     
     ##############
     # ROS THINGS #
     ##############
     rospy.init_node("optimization_node")
-    circle_static_pub = rospy.Publisher("/cairo_2d_sim/create_directional_circle_static", String, queue_size=1)
-    menu_commands_pub = rospy.Publisher('/cairo_2d_sim/menu_commands', MenuCommands, queue_size=1)
-    state_pub = rospy.Publisher("/cairo_2d_sim/robot_state_replay", Pose2DStamped, queue_size=1)
+    circle_static_pub = rospy.Publisher("/cairo_2d_sim/create_directional_circle_static", String, queue_size=5)
+    line_static_pub = rospy.Publisher("/cairo_2d_sim/create_line_static", String, queue_size=5)
+    menu_commands_pub = rospy.Publisher('/cairo_2d_sim/menu_commands', MenuCommands, queue_size=5)
+    state_pub = rospy.Publisher("/cairo_2d_sim/robot_state_replay", Pose2DStamped, queue_size=5)
 
     #########################
     # CONSTANTS / VARIABLES #
@@ -81,10 +92,12 @@ if __name__ == "__main__":
     X_DOMAIN = [0, 1800]
     Y_DOMAIN = [0, 1000]
     THETA_DOMAIN = [0, 360]
+    KEYFRAME_KDE_BANDWIDTH = .15
+    SAMPLING_BIAS_KDE_BANDWIDTH = .15
     MOVE_TIME = 10
-    EPSILON = 30
-    EXTENSION_DISTANCE = 40
-    MAX_SEGMENT_PLANNING_TIME = 20
+    EPSILON = 25
+    EXTENSION_DISTANCE = 100
+    MAX_SEGMENT_PLANNING_TIME = 60
     MAX_ITERS = 5000
     EVAL_OUTPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/bias_optfk/output")
     GOLD_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/bias_optfk/input/gold/*.json")
@@ -120,11 +133,12 @@ if __name__ == "__main__":
     optimization_map[(2, 3)] = SingleIntersectionWithTargetingOptimization((1205, 100), (800, 500))
     
     for _ in range(0, TRIALS):
-        
+        eval_trial = IPDRelaxEvaluationTrial()
         # Per trial evaluation data stores.
         TRAJECTORY_SEGMENTS = []
         EVAL_CONSTRAINT_ORDER = []
         IP_GEN_TIMES = []
+        IP_GEN_TYPES = []
         PLANNING_FAILURE = False
         
         #################################################
@@ -155,7 +169,7 @@ if __name__ == "__main__":
         labeled_initial_demos = demo_labeler.label(demonstrations)
         
         lfd = LfD2D(observation_xytheta_vectorizor)
-        lfd.build_keyframe_graph(labeled_initial_demos, .05)
+        lfd.build_keyframe_graph(labeled_initial_demos, KEYFRAME_KDE_BANDWIDTH)
         
         # The intemediate trajectory data is used to bias planning of segments between cosntraint intersection points.
         intermediate_trajectories = {key: [[o.data for o in segment] for segment in group]
@@ -216,7 +230,7 @@ if __name__ == "__main__":
         # Here we use the keyframe planning order, creating a sequential pairing of keyframe ids.
         
         # Start overall planning time:
-        evaluation.start_timer("planning_time")
+        eval_trial.start_timer("planning_time")
         try:
             for edge in list(zip(planning_sequence, planning_sequence[1:])):
                 e1 = edge[0]
@@ -238,7 +252,7 @@ if __name__ == "__main__":
                     if len(inter_trajs_data) == 0:
                         planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
                     else:
-                        planning_biasing_distribution = KernelDensityDistribution(bandwidth=.15)
+                        planning_biasing_distribution = KernelDensityDistribution(bandwidth=SAMPLING_BIAS_KDE_BANDWIDTH)
                         planning_biasing_distribution.fit(inter_trajs_data)
                         planning_state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
                 planning_G.edges[edge]["planning_state_space"] = planning_state_space
@@ -250,32 +264,45 @@ if __name__ == "__main__":
                 if  planning_G.nodes[e1].get("waypoint", None) is None:
                     found = False
                     while not found:
-                        evaluation.start_timer("steering_point_generation_1")
+                        eval_trial.start_timer("steering_point_generation_1")
                         # sample a candidate point from the transition keyframe
                         candidate_point = lfd.sample_from_keyframe(e1, n_samples=1)
                         
+                        # see if candidate point is already valid
+                        tsr = c2tsr_map.get(planning_G.nodes[e1]["constraint_ids"], None)
+                        if tsr is not None:
+                            if tsr.validate(candidate_point):
+                                waypoint = candidate_point
+                                planning_G.nodes[e1]["waypoint"] = waypoint
+                                found = True
+                                IP_GEN_TYPES.append("direct")
+                        
                         # get the TSR/Optimizer for use in the segment start/endpoint loop
                         point_optimizer = optimization_map.get(planning_G.nodes[e1]["constraint_ids"], None)
-                        if point_optimizer is None:
+                        if point_optimizer is None and not found:
                             # we use the TSR projection to get the point
                             tsr = c2tsr_map.get(planning_G.nodes[e1]["constraint_ids"], None)
                             waypoint = tsr.project(candidate_point, None)
                             if waypoint is not None:
                                 planning_G.nodes[e1]["waypoint"] = waypoint
                                 found = True
+                                IP_GEN_TYPES.append("projection")
                             else:
                                 continue
-                        else:
+                        elif not found:
                             waypoint = point_optimizer.solve(candidate_point)
                             if waypoint is not None:
                                 planning_G.nodes[e1]["waypoint"] = waypoint
                                 found = True
+                                IP_GEN_TYPES.append("optimization")
                             else:
                                 continue
-                        IP_GEN_TIMES.append(evaluation.end_timer("steering_point_generation_1"))
-                        # Send the used candidate point to the replay renderer:
-                        publish_directed_point(circle_static_pub, candidate_point[0:2], candidate_point[2], 8, [255, 25, 0])
-                        # Send the corrected point
+                        IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
+                        # Create a line between the two points. 
+                        publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
+                        # Send to the game renderer:
+                        publish_directed_point(circle_static_pub, list(candidate_point[0:2]), list(candidate_point[2]), 8, [255, 25, 0])
+                        # Send the updated correct point
                         publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
                         start = list(waypoint)
                 else:
@@ -283,34 +310,44 @@ if __name__ == "__main__":
                 if  planning_G.nodes[e2].get("waypoint", None) is None:
                     found = False
                     while not found:
-                        evaluation.start_timer("steering_point_generation_2")
+                        eval_trial.start_timer("steering_point_generation_2")
                         # sample a candidate point randomly from the transition keyframe
                         candidate_point = lfd.sample_from_keyframe(e2, 1)
                         
-                        # get the TSR/Optimizer for use in the segment start/endpoint loop
+                        # see if candidate point is already valid
+                        tsr = c2tsr_map.get(planning_G.nodes[e2]["constraint_ids"], None)
+                        if tsr is not None:
+                            if tsr.validate(candidate_point):
+                                waypoint = candidate_point
+                                planning_G.nodes[e2]["waypoint"] = waypoint
+                                found = True
+                                IP_GEN_TYPES.append("direct")
+                                
+                        # get the Optimizer for use in the segment start/endpoint loop
                         point_optimizer = optimization_map.get(planning_G.nodes[e2]["constraint_ids"], None)
-                        if point_optimizer is None:
-                            # we use the TSR projection to get the point
-                            tsr = c2tsr_map.get(planning_G.nodes[e2]["constraint_ids"], None)
+                        if point_optimizer is None and not found:
+                            # we use the TSR projection to get the point if there is no optimizer to use.
                             waypoint = tsr.project(candidate_point, None)
                             if waypoint is not None:
                                 planning_G.nodes[e2]["waypoint"] = waypoint
                                 found = True
+                                IP_GEN_TYPES.append("waypoint")
                             else:
                                 continue
-                        else:
+                        elif not found:
                             waypoint = point_optimizer.solve(candidate_point)
                             if waypoint is not None:
                                 planning_G.nodes[e2]["waypoint"] = waypoint
                                 found = True
+                                IP_GEN_TYPES.append("optimization")
                             else:
                                 continue
-                        IP_GEN_TIMES.append(evaluation.end_timer("steering_point_generation_2"))
+                        # Create a line between the two points. 
+                        publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
                         # Send to the game renderer:
-                        publish_directed_point(circle_static_pub, candidate_point[0:2], candidate_point[2], 8, [255, 25, 0])
+                        publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
                         # Send the updated correct point
                         publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
-
                         end = list(waypoint)
                 else:
                     end = list(planning_G.nodes[e2]["waypoint"])
@@ -356,23 +393,27 @@ if __name__ == "__main__":
         except PlanningTimeoutException:
             print("PLANNING TIMEOUT! PLANNING FAILURE!")
             PLANNING_FAILURE = True
+            eval_trial.notes = "Planning timeout failure."
         except MaxItersException:
             print("MAX ITERS REACHED. PLANNING FAILURE!")
             PLANNING_FAILURE = True
+            eval_trial.notes = "Planning max iters failure."
+
                 
         if not PLANNING_FAILURE:
-            evaluation.add_planning_time(evaluation.end_timer("planning_time"))
+            eval_trial.planning_time = eval_trial.end_timer("planning_time")
             curve = JointTrajectoryCurve()
             timed_trajectory = curve.generate_trajectory([np.array(entry) for entry in full_trajectory], move_time=MOVE_TIME, num_intervals=1)
             trajectory = [point[1] for point in timed_trajectory]
             
             # Update trial evaluation data.
-            evaluation.add_path_length(evaluation.eval_path_length(trajectory))
-            evaluation.add_success(evaluation.eval_success(trajectory, goal, EPSILON))
-            evaluation.add_a2s(evaluation.eval_a2s([p[:2] for p in trajectory], [p[:2] for p in gold_demo_traj]))
-            evaluation.add_a2f(evaluation.eval_a2f(TRAJECTORY_SEGMENTS, c2tsr_map, EVAL_CONSTRAINT_ORDER))
-            evaluation.add_steering_point_gen_times(IP_GEN_TIMES)
-            
+            eval_trial.path_length = eval_trial.eval_path_length(trajectory)
+            eval_trial.success = eval_trial.eval_success(trajectory, goal, EPSILON)
+            eval_trial.a2s_distance = eval_trial.eval_a2s([p[:2] for p in trajectory], [p[:2] for p in gold_demo_traj])
+            eval_trial.a2f_percentage = eval_trial.eval_a2f(TRAJECTORY_SEGMENTS, c2tsr_map, EVAL_CONSTRAINT_ORDER)
+            eval_trial.ip_gen_times = IP_GEN_TIMES
+            eval_trial.ip_gen_types = IP_GEN_TYPES
+            evaluation.add_trial(eval_trial)
             # Execute
             prior_time = timed_trajectory[0][0]
             for point in timed_trajectory:
@@ -393,13 +434,9 @@ if __name__ == "__main__":
             menu_commands_pub.publish(mc)
         else:
             # Update trial evaluation data with failure-style data.
-            evaluation.add_planning_time(-1)
-            evaluation.add_path_length(0)
-            evaluation.add_success("X")
-            evaluation.add_a2s(0)
-            evaluation.add_a2f(0)
-            evaluation.add_steering_point_gen_times([-1])
-            
+            eval_trial.add_success("X")
+            evaluation.add_trial(eval_trial)
+
             mc = MenuCommands()
             mc.restart.data = True
             menu_commands_pub.publish(mc)

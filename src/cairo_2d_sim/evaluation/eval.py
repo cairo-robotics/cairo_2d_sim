@@ -17,18 +17,23 @@ class IPDRelaxEvaluation():
         self.trials.append(trial)
 
     def export(self):
-        # TODO: MAKE EACH TRIAL OUTPUT
         filename = os.path.join(self.output_dir, "eval_results.json")
+        trials_data = []
+        for trial in self.trials:
+            trial_data = {}
+            trial_data["path_length"] = trial.path_length
+            trial_data["a2s_distance"] = trial.a2s_distance
+            trial_data["success"] = trial.success
+            trial_data["a2f_percentage"] = trial.a2f_percentage
+            trial_data["planning_time"] = trial.planning_time
+            trial_data["ip_generation_times"] = trial.ip_gen_times
+            trial_data["ip_generation_types"] = trial.ip_gen_types
+            trial_data["trajectory"] = trial.trajectory
+            trial_data["notes"] = trial.notes
+            trials_data.append(trial_data)
+    
         with open(filename, 'w') as f:
-            data = {}
-            data["path_lengths"] = self.path_lengths
-            data["a2s_distances"] = self.a2s_dists
-            data["successes"] = self.successes
-            data["a2f_percentages"] = self.a2f_percentages
-            data["planning_times"] = self.planning_times
-            data["ip_generation_times"] = self.ip_gen_times
-            
-            json.dump(data, f)
+            json.dump(trials_data, f)
 
     
     
@@ -42,6 +47,7 @@ class IPDRelaxEvaluationTrial():
         self.planning_time = -1
         self.ip_gen_times = []
         self.trajectory = []
+        self.ip_gen_types = []
         self.notes = "None"
         self.timers = {}
         
@@ -64,7 +70,7 @@ class IPDRelaxEvaluationTrial():
     def add_success(self, success_bool):
         self.success = success_bool
     
-    def eval_success(self, trajectory, goal_point, epsilon=10):
+    def eval_success(self, trajectory, goal_point, epsilon=25):
         dist_xy = euclidean(trajectory[-1][:2], goal_point[:2])
         delta_theta = abs(trajectory[-1][2] - goal_point[2])
         diff_theta = abs((delta_theta + 180) % 360 - 180)
@@ -93,7 +99,10 @@ class IPDRelaxEvaluationTrial():
         self.planning_time = time
         
     def add_steering_point_gen_times(self, times):
-        self.ip_gen_times.append(times)
+        self.ip_gen_times = times
+    
+    def add_ip_gen_types(self, types):
+        self.ip_gen_types = types
         
     def start_timer(self, name):
         self.timers[name] = time.perf_counter()

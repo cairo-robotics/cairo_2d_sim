@@ -37,17 +37,16 @@ class Holonomic2DStateSpace():
         x_rand = random.uniform(self.x_domain[0], self.x_domain[1])
         y_rand = random.uniform(self.y_domain[0], self.y_domain[1])
         theta_rand = random.uniform(self.theta_domain[0], self.theta_domain[1])
-        
         return [x_rand, y_rand, theta_rand]
     
 
 class Holonomic2DBiasedStateSpace():
     
-    def __init__(self, distribution_model, x_domain, y_domain, theta_domain=(0, 360), ):
+    def __init__(self, distribution_model, x_domain, y_domain, theta_domain=(0, 360), fraction_uniform=.05):
         self.x_domain = x_domain
         self.y_domain = y_domain
         self.theta_domain = theta_domain
-        self.sampler = DistributionSampler(distribution_model)
+        self.sampler = DistributionSampler(distribution_model, fraction_uniform=fraction_uniform)
             
     def sample(self):
         return self.sampler.sample([self.x_domain, self.y_domain, self.theta_domain])

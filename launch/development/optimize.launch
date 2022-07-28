@@ -1,6 +1,5 @@
 <launch>
 
     <node pkg="cairo_2d_sim" name="optimize_test" type="optimize.py" output = "screen" cwd="node"/>
-    <!-- <node pkg="cairo_2d_sim" name="replay" type="replay.py" output = "screen" cwd="node"/> -->
 
 </launch>
