@@ -1,5 +1,6 @@
 import os
 import math
+import json
 
 import pygame as pg
 
@@ -43,7 +44,6 @@ def draw_arrow_alpha(screen, color, pos, angle):
 def text_objects(text, font):
     txtsurf = font.render(text, True, (0, 0, 0))
     return txtsurf, txtsurf.get_rect()
-
 
 def disptf(x, y, theta=0):
     a = [(x+500), (380-y), -theta]

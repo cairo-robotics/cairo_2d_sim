@@ -56,6 +56,9 @@ class CRRT():
         self.smoothing_time = params.get('smoothing_time', 10)
         self.max_iters = params.get('max_iters', 1000)
         self.timeout_in_seconds = params.get('planning_timeout', 10)
+        self.display_tree = params.get('display_tree', False)
+        self.circle_static_pub = rospy.Publisher("/cairo_2d_sim/create_directional_circle_static", String, queue_size=10000)
+        self.line_static_pub = rospy.Publisher("/cairo_2d_sim/create_line_static", String, queue_size=10000)
     
     def plan(self, tsr, start_q, goal_q):
         """ 
@@ -67,8 +70,7 @@ class CRRT():
         self.start_name = val2str(start_q)
         self.goal_q = goal_q
         self.goal_name = val2str(goal_q)
-        self.circle_static_pub = rospy.Publisher("/cairo_2d_sim/create_directional_circle_static", String, queue_size=5)
-        self.line_static_pub = rospy.Publisher("/cairo_2d_sim/create_line_static", String, queue_size=5)
+       
         if np.linalg.norm(np.array(start_q[0:2]) - np.array(goal_q[0:2])) < self.epsilon:
             self._add_vertex(self.tree, start_q)
             self._add_vertex(self.tree, goal_q)
@@ -109,10 +111,12 @@ class CRRT():
             q_proj = self._constrained_extend(tsr, q_near, q_target)
             if q_proj is not None:
                 self._add_vertex(self.tree, q_proj)
-                publish_directed_point(self.circle_static_pub, position=q_proj[0:2], angle=q_proj[2], radius=5, color=[0, 255, 0])
                 # print(self._distance(q_near, q_proj))
                 self._add_edge(self.tree, q_near, q_proj, self._distance(q_near, q_proj))
-                publish_line(self.line_static_pub, q_near[0:2], q_proj[0:2], color=[0, 50, 0])
+                if self.display_tree:
+                    time.sleep(.01)
+                    publish_directed_point(self.circle_static_pub, position=q_proj[0:2], angle=q_proj[2], radius=5, color=[0, 255, 0])
+                    publish_line(self.line_static_pub, q_near[0:2], q_proj[0:2], color=[0, 50, 0])
             # print(q_near, q_proj, self._distance(q_near, q_proj), self._equal(q_proj, self.goal_q))
             if q_proj is not None and self._equal(q_proj, self.goal_q):
                 self._add_vertex(self.tree, self.goal_q)

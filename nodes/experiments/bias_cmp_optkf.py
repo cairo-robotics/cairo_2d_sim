@@ -12,6 +12,7 @@ import numpy as np
 import rospy
 import networkx as nx
 
+from cairo_2d_sim.control.publish import publish_directed_point, publish_line, publish_text_label
 from cairo_2d_sim.planning.distribution import KernelDensityDistribution
 from cairo_2d_sim.planning.optimization import  DualIntersectionWithTargetingOptimization, SingleIntersectionWithTargetingOptimization
 from cairo_2d_sim.planning.constraints import UnconstrainedTSR, LineTSR, DualLineTargetingTSR
@@ -54,34 +55,16 @@ def extract_constraint_map_key(orderd_constraint_dict):
             constraint_key.append(3)
     return tuple(set(constraint_key))
 
-def publish_directed_point(publisher, position, angle, radius, color):
-    data = {}
-    data["x"] = position[0]
-    data["y"] = position[1]
-    data["radius"] = radius
-    data["angle"] = angle
-    data["color"] = color
-    data_str = json.dumps(data)
-    publisher.publish(data_str)
-
-def publish_line(publisher, pos1, pos2, color):
-    data = {}
-    data["x1"] = pos1[0]
-    data["y1"] = pos1[1]
-    data["x2"] = pos2[0]
-    data["y2"] = pos2[1]
-    data["color"] = color
-    data_str = json.dumps(data)
-    publisher.publish(data_str)
 
 if __name__ == "__main__":
     
     ##############
     # ROS THINGS #
     ##############
-    rospy.init_node("optimization_node")
+    rospy.init_node("bias_cmp_optkf")
     circle_static_pub = rospy.Publisher("/cairo_2d_sim/create_directional_circle_static", String, queue_size=5)
     line_static_pub = rospy.Publisher("/cairo_2d_sim/create_line_static", String, queue_size=5)
+    text_label_pub = rospy.Publisher("/cairo_2d_sim/create_text_label", String, queue_size=5)
     menu_commands_pub = rospy.Publisher('/cairo_2d_sim/menu_commands', MenuCommands, queue_size=5)
     state_pub = rospy.Publisher("/cairo_2d_sim/robot_state_replay", Pose2DStamped, queue_size=5)
 
@@ -92,11 +75,11 @@ if __name__ == "__main__":
     X_DOMAIN = [0, 1800]
     Y_DOMAIN = [0, 1000]
     THETA_DOMAIN = [0, 360]
-    KEYFRAME_KDE_BANDWIDTH = .15
-    SAMPLING_BIAS_KDE_BANDWIDTH = .15
+    KEYFRAME_KDE_BANDWIDTH = .35
+    SAMPLING_BIAS_KDE_BANDWIDTH = .05
     MOVE_TIME = 10
-    EPSILON = 25
-    EXTENSION_DISTANCE = 100
+    EPSILON = 50
+    EXTENSION_DISTANCE = 25
     MAX_SEGMENT_PLANNING_TIME = 60
     MAX_ITERS = 5000
     EVAL_OUTPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/bias_optfk/output")
@@ -302,6 +285,8 @@ if __name__ == "__main__":
                         publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
                         # Send to the game renderer:
                         publish_directed_point(circle_static_pub, list(candidate_point[0:2]), list(candidate_point[2]), 8, [255, 25, 0])
+                        # Send the label to the rendered:
+                        publish_text_label(text_label_pub, waypoint[0:2], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e1]["constraint_ids"], [0, 0, 0]))
                         # Send the updated correct point
                         publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
                         start = list(waypoint)
@@ -346,6 +331,8 @@ if __name__ == "__main__":
                         publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
                         # Send to the game renderer:
                         publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
+                         # Send the label to the rendered:
+                        publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e2]["constraint_ids"]), [0, 0, 0])
                         # Send the updated correct point
                         publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
                         end = list(waypoint)

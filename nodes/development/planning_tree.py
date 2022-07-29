@@ -25,10 +25,11 @@ if __name__ == '__main__':
     goal_q = [634, 800, 225.20]
     planning_params = {
         "smooth_path": False,
-        "epsilon": 25,
-        "extension_distance": 500,
+        "epsilon": 50,
+        "extension_distance": 25,
         "max_iters": 1000000,
-        "planning_timeout": 100000
+        "planning_timeout": 100000,
+        "display_tree": True
     }
     state_space = Holonomic2DStateSpace((0, 1800), (0, 1000))
     svc = StateValidityChecker(start_q, goal_q)
@@ -38,16 +39,10 @@ if __name__ == '__main__':
 
     path_points = crrt.get_path(crrt.plan(tsr, start_q, goal_q))
 
-    print(path_points)
-    for point in path_points:
-        print(point)
-
     move_time = 10
 
     trajectory = list(zip([move_time * n/len(path_points) for n in range(0, len(path_points))], [q[0]
                       for q in path_points], [q[1] for q in path_points], [q[2] for q in path_points]))
-
-    print(trajectory)
 
     state_pub = rospy.Publisher(
         '/cairo_2d_sim/robot_state_replay', Pose2DStamped, queue_size=1)
