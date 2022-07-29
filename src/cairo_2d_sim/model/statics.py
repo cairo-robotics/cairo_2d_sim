@@ -53,3 +53,16 @@ class CircleStatic:
 
     def render(self, screen):
         draw_circle_alpha(screen, self.color, (self.x, self.y), self.radius)
+        
+class TextLabelStatic:
+
+    def __init__(self, x, y, text, color=None):
+        self.x = x
+        self.y = y
+        self.text = text
+        self.color = color if color is not None else [0, 0, 0]
+
+    def render(self, screen):
+        font = pg.freetype.SysFont('Comic Sans MS', 15)
+        # or just `render_to` the target surface.
+        font.render_to(screen, (self.x, self.y), self.text, self.color)
