@@ -52,31 +52,44 @@ class LineTSR():
             raise Exception("p1 and p2 are the same points, no line exists")
     
     def distance(self, p):
-        M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
-        t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M)
-        line_proj = self.p1[0:2] + np.dot(t0, M)
+        line_proj = self._line_projection(p)
         return np.linalg.norm(line_proj - p)
     
     def validate(self, p):
-        M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
-        t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M)
-        line_proj = self.p1[0:2] + np.dot(t0, M)
+        line_proj = self._line_projection(p)
         if np.linalg.norm(line_proj - p[0:2]) < self.bounds[0]:
             return True
         else:
             return False
 
     def project(self, p, _):
-        M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
-        t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M)
-        line_proj = self.p1[0:2] + np.dot(t0, M)
-        
+        line_proj = self._line_projection(p)
         projected_point = []
         projected_point.append(line_proj[0])
         projected_point.append(line_proj[1])
         projected_point.append(p[2])
-
         return projected_point
+    
+    def _line_projection(self, p):
+        M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
+        t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M)
+        line_proj = self.p1[0:2] + np.dot(t0, M)
+        
+        # endpoint accomodation
+        x_values = sorted([self.p1[0], self.p2[0]])
+        y_values = sorted([self.p1[1], self.p2[1]])
+        
+        if line_proj[0] < x_values[0]:
+            line_proj[0] = x_values[0]
+        elif line_proj[0] > x_values[1]:
+            line_proj[0] = x_values[1]
+        
+        if line_proj[1] < y_values[0]:
+            line_proj[1] = y_values[0]
+        elif line_proj[1] > y_values[1]:
+            line_proj[1] = y_values[1]
+        
+        return line_proj
 
 class LineTargetingTSR():
     
@@ -89,9 +102,7 @@ class LineTargetingTSR():
             raise Exception("p1 and p2 are the same points, no line exists")
     
     def distance(self, p):
-        M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
-        t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M)
-        line_proj = self.p1[0:2] + np.dot(t0, M)
+        line_proj = self._line_projection(p)
         theta_p = self._theta_projection(p)
         theta_line_proj = self._theta_projection(line_proj)
         angle_diff = theta_p - theta_line_proj
@@ -101,9 +112,7 @@ class LineTargetingTSR():
         return np.linalg.norm(bound_vec)
     
     def validate(self, p):
-        M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
-        t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M)
-        line_proj = self.p1[0:2] + np.dot(t0, M)
+        line_proj = self._line_projection(p)
         theta_p = self._theta_projection(p)
         theta_line_proj = self._theta_projection(line_proj)
         angle_diff = theta_p - theta_line_proj
@@ -116,18 +125,32 @@ class LineTargetingTSR():
             return False
     
     def project(self, p, _):
-       line_projection = self._line_projection(p)
-       if line_projection is None:
+        line_proj = self._line_projection(p)
+        if line_proj is None:
            return None
-       theta = self._theta_projection(line_projection)
-       line_projection.append(theta)
-       return line_projection
+        theta = self._theta_projection(line_proj)
+        line_proj.append(theta)
+        return line_proj
     
     def _line_projection(self, p):
         M = np.array(self.p2[0:2]) - np.array(self.p1[0:2])
         t0 = np.dot(p[0:2] - self.p1[0:2], M) / np.dot(M, M)
         line_proj = self.p1[0:2] + np.dot(t0, M)
         
+        # endpoint accomodation
+        x_values = sorted([self.p1[0], self.p2[0]])
+        y_values = sorted([self.p1[1], self.p2[1]])
+        
+        if line_proj[0] < x_values[0]:
+            line_proj[0] = x_values[0]
+        elif line_proj[0] > x_values[1]:
+            line_proj[0] = x_values[1]
+        
+        if line_proj[1] < y_values[0]:
+            line_proj[1] = y_values[0]
+        elif line_proj[1] > y_values[1]:
+            line_proj[1] = y_values[1]
+
         projected_point = []
         projected_point.append(line_proj[0])
         projected_point.append(line_proj[1])
@@ -165,20 +188,8 @@ class DualLineTargetingTSR():
             raise Exception("p1 and p2 are the same points, no line exists")
     
     def validate(self, p):
-        M1 = np.array(self.l1p2[0:2]) - np.array(self.l1p1[0:2])
-        t10 = np.dot(p[0:2] - self.l1p1[0:2], M1) / np.dot(M1, M1)
-        line_1_proj = self.l1p1[0:2] + np.dot(t10, M1)
-        
-        M2 = np.array(self.l2p2[0:2]) - np.array(self.l2p1[0:2])
-        t20 = np.dot(p[0:2] - self.l2p1[0:2], M2) / np.dot(M2, M2)
-        line_2_proj = self.l1p1[0:2] + np.dot(t20, M2)
-        
-        if np.linalg.norm(line_1_proj - p[0:2]) < np.linalg.norm(line_2_proj - p[0:2]):
-            line_proj = line_1_proj
-        else:
-            line_proj = line_2_proj
-            
-        distance_to_line = np.linalg.norm(line_proj - p[0:2])
+        line_proj = self._line_projection(p, None)
+        distance_to_line = np.linalg.norm(np.array(line_proj) - p[0:2])
         theta_diff = p[2] - self._theta_projection(line_proj)
         theta_delta = abs((theta_diff + 180) % 360 - 180)
         bounds_vec = self._distance_to_bounds(distance_to_line, theta_delta)
@@ -188,18 +199,7 @@ class DualLineTargetingTSR():
             return False
     
     def distance(self, p):
-        M1 = np.array(self.l1p2[0:2]) - np.array(self.l1p1[0:2])
-        t10 = np.dot(p[0:2] - self.l1p1[0:2], M1) / np.dot(M1, M1)
-        line_1_proj = self.l1p1[0:2] + np.dot(t10, M1)
-        
-        M2 = np.array(self.l2p2[0:2]) - np.array(self.l2p1[0:2])
-        t20 = np.dot(p[0:2] - self.l2p1[0:2], M2) / np.dot(M2, M2)
-        line_2_proj = self.l1p1[0:2] + np.dot(t20, M2)
-
-        if np.linalg.norm(line_1_proj - p[0:2]) < np.linalg.norm(line_2_proj - p[0:2]):
-            line_proj = line_1_proj
-        else:
-            line_proj = line_2_proj
+        line_proj = self._line_projection(p, None)
         theta = 360 - atan2(self.target[1] - p[1], self.target[0] - p[0]) * 180 / pi
         angle_diff = p[2] - theta
         xy_dist = np.linalg.norm(line_proj[0:2] - p[0:2])
@@ -221,18 +221,37 @@ class DualLineTargetingTSR():
         
         M2 = np.array(self.l2p2[0:2]) - np.array(self.l2p1[0:2])
         t20 = np.dot(p[0:2] - self.l2p1[0:2], M2) / np.dot(M2, M2)
-        line_2_proj = self.l1p1[0:2] + np.dot(t20, M2)
+        line_2_proj = self.l2p1[0:2] + np.dot(t20, M2)
         
         if q_near is not None:
             if np.linalg.norm(line_1_proj - q_near[0:2]) < np.linalg.norm(line_2_proj - q_near[0:2]):
+                ref_p1 = self.l1p1
+                ref_p2 = self.l1p2
                 line_proj = line_1_proj
             else:
+                ref_p1 = self.l2p1
+                ref_p2 = self.l2p2
                 line_proj = line_2_proj
         else:
             if np.linalg.norm(line_1_proj - p[0:2]) < np.linalg.norm(line_2_proj - p[0:2]):
+                ref_p1 = self.l1p1
+                ref_p2 = self.l1p2
                 line_proj = line_1_proj
             else:
+                ref_p1 = self.l2p1
+                ref_p2 = self.l2p2
                 line_proj = line_2_proj
+        # endpoint accomodation
+        x_values = sorted([ref_p1[0], ref_p2[0]])
+        y_values = sorted([ref_p1[1], ref_p2[1]])
+        if line_proj[0] < x_values[0]:
+            line_proj[0] = x_values[0]
+        elif line_proj[0] > x_values[1]:
+            line_proj[0] = x_values[1]
+        if line_proj[1] < y_values[0]:
+            line_proj[1] = y_values[0]
+        elif line_proj[1] > y_values[1]:
+            line_proj[1] = y_values[1]
         
         return list(line_proj)
     
