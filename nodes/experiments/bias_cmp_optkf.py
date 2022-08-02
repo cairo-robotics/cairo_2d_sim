@@ -122,6 +122,7 @@ if __name__ == "__main__":
         EVAL_CONSTRAINT_ORDER = []
         IP_GEN_TIMES = []
         IP_GEN_TYPES = []
+        IP_TSR_DISTANCES = []
         PLANNING_FAILURE = False
         
         #################################################
@@ -251,7 +252,7 @@ if __name__ == "__main__":
                         # sample a candidate point from the transition keyframe
                         candidate_point = lfd.sample_from_keyframe(e1, n_samples=1)
                         
-                        # see if candidate point is already valid
+                        # see if candidate point is already valid according to the TSR constraint
                         tsr = c2tsr_map.get(planning_G.nodes[e1]["constraint_ids"], None)
                         if tsr is not None:
                             if tsr.validate(candidate_point):
@@ -259,7 +260,7 @@ if __name__ == "__main__":
                                 planning_G.nodes[e1]["waypoint"] = waypoint
                                 found = True
                                 IP_GEN_TYPES.append("direct")
-                        
+
                         # get the TSR/Optimizer for use in the segment start/endpoint loop
                         point_optimizer = optimization_map.get(planning_G.nodes[e1]["constraint_ids"], None)
                         if point_optimizer is None and not found:
@@ -280,6 +281,12 @@ if __name__ == "__main__":
                                 IP_GEN_TYPES.append("optimization")
                             else:
                                 continue
+                        # Evaluate TSR distance for each point.
+                        if tsr is not None:
+                            IP_TSR_DISTANCES.append(tsr.distance(waypoint))
+                        else:
+                            IP_TSR_DISTANCES.append(0)
+                        
                         IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
                         # Create a line between the two points. 
                         publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
@@ -316,7 +323,7 @@ if __name__ == "__main__":
                             if waypoint is not None:
                                 planning_G.nodes[e2]["waypoint"] = waypoint
                                 found = True
-                                IP_GEN_TYPES.append("waypoint")
+                                IP_GEN_TYPES.append("projection")
                             else:
                                 continue
                         elif not found:
@@ -326,7 +333,13 @@ if __name__ == "__main__":
                                 found = True
                                 IP_GEN_TYPES.append("optimization")
                             else:
-                                continue
+                                continue                            
+                        # Evaluate TSR distance for each point.
+                        if tsr is not None:
+                            IP_TSR_DISTANCES.append(tsr.distance(waypoint))
+                        else:
+                            IP_TSR_DISTANCES.append(0)
+
                         # Create a line between the two points. 
                         publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
                         # Send to the game renderer:
@@ -400,7 +413,10 @@ if __name__ == "__main__":
             eval_trial.a2f_percentage = eval_trial.eval_a2f(TRAJECTORY_SEGMENTS, c2tsr_map, EVAL_CONSTRAINT_ORDER)
             eval_trial.ip_gen_times = IP_GEN_TIMES
             eval_trial.ip_gen_types = IP_GEN_TYPES
+            eval_trial.ip_tsr_distances = IP_TSR_DISTANCES
+            eval_trial.trajectory = trajectory
             evaluation.add_trial(eval_trial)
+            
             # Execute
             prior_time = timed_trajectory[0][0]
             for point in timed_trajectory:
@@ -421,7 +437,7 @@ if __name__ == "__main__":
             menu_commands_pub.publish(mc)
         else:
             # Update trial evaluation data with failure-style data.
-            eval_trial.add_success("X")
+            eval_trial.success = "X"
             evaluation.add_trial(eval_trial)
 
             mc = MenuCommands()
