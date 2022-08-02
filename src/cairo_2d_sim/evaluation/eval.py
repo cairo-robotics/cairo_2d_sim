@@ -28,6 +28,7 @@ class IPDRelaxEvaluation():
             trial_data["planning_time"] = trial.planning_time
             trial_data["ip_generation_times"] = trial.ip_gen_times
             trial_data["ip_generation_types"] = trial.ip_gen_types
+            trial_data["ip_tsr_distances"] = trial.ip_tsr_distances
             trial_data["trajectory"] = trial.trajectory
             trial_data["notes"] = trial.notes
             trials_data.append(trial_data)
@@ -48,6 +49,7 @@ class IPDRelaxEvaluationTrial():
         self.ip_gen_times = []
         self.trajectory = []
         self.ip_gen_types = []
+        self.ip_tsr_distances = []
         self.notes = "None"
         self.timers = {}
         
@@ -57,18 +59,15 @@ class IPDRelaxEvaluationTrial():
             total_path_length += euclidean(trajectory[i], trajectory[i + 1])
         return total_path_length
 
-    def add_path_length(self, total_path_length):
-        self.path_length = total_path_length
-
-    def eval_a2s(self, trajectory, gold_trajectory):
-        dist, _ = fastdtw(trajectory, gold_trajectory)
+    def eval_a2s(self, trajectory, gold_trajectory, ignore_theta=True):
+        if ignore_theta:
+            t1 = [p[0:2] for p in trajectory]
+            t2 = [p[0:2] for p in gold_trajectory]
+        else:
+            t1 = trajectory
+            t2 = gold_trajectory
+        dist, _ = fastdtw(t1, t2)
         return dist
-    
-    def add_a2s(self, dist):
-        self.a2s_distance = dist
-
-    def add_success(self, success_bool):
-        self.success = success_bool
     
     def eval_success(self, trajectory, goal_point, epsilon=25):
         dist_xy = euclidean(trajectory[-1][:2], goal_point[:2])
@@ -92,17 +91,9 @@ class IPDRelaxEvaluationTrial():
                     results.append(True)
         return sum(results) / len(results)
     
-    def add_a2f(self, percentage):
-        self.a2f_percentage = percentage
-                
-    def add_planning_time(self, time):
-        self.planning_time = time
-        
-    def add_steering_point_gen_times(self, times):
-        self.ip_gen_times = times
-    
-    def add_ip_gen_types(self, types):
-        self.ip_gen_types = types
+    def eval_tsr_distance(self, steering_point, tsr):
+        distance = tsr.distance(steering_point)
+        return distance
         
     def start_timer(self, name):
         self.timers[name] = time.perf_counter()
@@ -111,4 +102,4 @@ class IPDRelaxEvaluationTrial():
         tic = self.timers[name]
         toc = time.perf_counter()
         return toc - tic
-    
+
