@@ -52,6 +52,8 @@ class LineTSR():
             raise Exception("p1 and p2 are the same points, no line exists")
     
     def distance(self, p):
+        if np.shape(p) != (2,):
+            p = p[0:2]
         line_proj = self._line_projection(p)
         return np.linalg.norm(line_proj - p)
     
@@ -202,7 +204,7 @@ class DualLineTargetingTSR():
         line_proj = self._line_projection(p, None)
         theta = 360 - atan2(self.target[1] - p[1], self.target[0] - p[0]) * 180 / pi
         angle_diff = p[2] - theta
-        xy_dist = np.linalg.norm(line_proj[0:2] - p[0:2])
+        xy_dist = np.linalg.norm(np.array(line_proj[0:2]) - np.array(p[0:2]))
         bounds = self._distance_to_bounds(xy_dist, angle_diff)
         return np.linalg.norm(bounds)
     
