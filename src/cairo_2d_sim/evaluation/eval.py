@@ -9,15 +9,17 @@ from scipy.spatial.distance import euclidean
 
 class IPDRelaxEvaluation():
     
-    def __init__(self, output_dir):
+    def __init__(self, output_dir, evaluation_name):
         self.output_dir = output_dir
+        self.evaluation_name = evaluation_name
         self.trials = []
         
     def add_trial(self, trial):
         self.trials.append(trial)
 
     def export(self):
-        filename = os.path.join(self.output_dir, "eval_results.json")
+        file_name = self.evaluation_name + ".json"
+        output_path = os.path.join(self.output_dir, file_name)
         trials_data = []
         for trial in self.trials:
             trial_data = {}
@@ -33,7 +35,7 @@ class IPDRelaxEvaluation():
             trial_data["notes"] = trial.notes
             trials_data.append(trial_data)
     
-        with open(filename, 'w') as f:
+        with open(output_path, 'w') as f:
             json.dump(trials_data, f)
 
     
