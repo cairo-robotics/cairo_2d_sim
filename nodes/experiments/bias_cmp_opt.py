@@ -92,7 +92,7 @@ if __name__ == "__main__":
     ##############
     
     # The evaluation object.
-    evaluation = IPDRelaxEvaluation(EVAL_OUTPUT_DIRECTORY)
+    evaluation = IPDRelaxEvaluation(EVAL_OUTPUT_DIRECTORY, evaluation_name="bias_opt")
         
     # Create the gold demonstration trajectory
     gold_demo_data = load_json_files(GOLD_DEMO_INPUT_DIRECTORY)["data"][0]
@@ -105,14 +105,14 @@ if __name__ == "__main__":
     c2tsr_map = {}
     c2tsr_map[()] = UnconstrainedTSR()
     c2tsr_map[(1,)] = LineTSR((405, 105), (405, 805))
-    c2tsr_map[(2,)] = DualLineTargetingTSR([405, 100], [1205, 100], [405, 700], [1205, 700], [805, 500])
+    c2tsr_map[(2,)] = DualLineTargetingTSR([405, 100], [1205, 100], [405, 705], [1205, 705], [800, 500])
     c2tsr_map[(3,)] = LineTSR((1205, 105), (1205, 505))
 
     ######################################
     # Constraint Intersection Optimizers #
     ######################################
     optimization_map = {}
-    optimization_map[(1, 2)] = DualIntersectionWithTargetingOptimization((405, 105), (405, 805), (800, 500))
+    optimization_map[(1, 2)] = DualIntersectionWithTargetingOptimization((405, 105), (405, 705), (800, 500))
     optimization_map[(2, 3)] = SingleIntersectionWithTargetingOptimization((1205, 100), (800, 500))
     
     for _ in range(0, TRIALS):
@@ -122,6 +122,7 @@ if __name__ == "__main__":
         EVAL_CONSTRAINT_ORDER = []
         IP_GEN_TIMES = []
         IP_GEN_TYPES = []
+        IP_TSR_DISTANCES = []
         PLANNING_FAILURE = False
         
         #################################################
@@ -285,6 +286,13 @@ if __name__ == "__main__":
                                 IP_GEN_TYPES.append("optimization")
                             else:
                                 continue
+                            
+                        # Evaluate TSR distance for each point.
+                        if tsr is not None:
+                            IP_TSR_DISTANCES.append(tsr.distance(waypoint))
+                        else:
+                            IP_TSR_DISTANCES.append(0)
+
                         IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
                         # Create a line between the two points. 
                         publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
@@ -335,6 +343,13 @@ if __name__ == "__main__":
                                 IP_GEN_TYPES.append("optimization")
                             else:
                                 continue
+
+                        # Evaluate TSR distance for each point.
+                        if tsr is not None:
+                            IP_TSR_DISTANCES.append(tsr.distance(waypoint))
+                        else:
+                            IP_TSR_DISTANCES.append(0)
+
                         IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_2"))
                          # Create a line between the two points. 
                         publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
@@ -410,6 +425,7 @@ if __name__ == "__main__":
             eval_trial.a2f_percentage = eval_trial.eval_a2f(TRAJECTORY_SEGMENTS, c2tsr_map, EVAL_CONSTRAINT_ORDER)
             eval_trial.ip_gen_times = IP_GEN_TIMES
             eval_trial.ip_gen_types = IP_GEN_TYPES
+            eval_trial.ip_tsr_distances = IP_TSR_DISTANCES
             evaluation.add_trial(eval_trial)
             # Execute
             prior_time = timed_trajectory[0][0]
@@ -431,7 +447,7 @@ if __name__ == "__main__":
             menu_commands_pub.publish(mc)
         else:
             # Update trial evaluation data with failure-style data.
-            eval_trial.add_success("X")
+            eval_trial.success = "X"
             evaluation.add_trial(eval_trial)
 
             mc = MenuCommands()

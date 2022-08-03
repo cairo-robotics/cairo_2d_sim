@@ -129,7 +129,7 @@ if __name__ == "__main__":
     # Constraint Intersection Optimizers #
     ######################################
     optimization_map = {}
-    optimization_map[(1, 2)] = DualIntersectionWithTargetingOptimization((405, 105), (405, 805), (800, 500))
+    optimization_map[(1, 2)] = DualIntersectionWithTargetingOptimization((405, 105), (405, 705), (800, 500))
     optimization_map[(2, 3)] = SingleIntersectionWithTargetingOptimization((1205, 100), (800, 500))
     
     for _ in range(0, TRIALS):

@@ -1,10 +1,8 @@
 #! /usr/bin/env python3
 import os
-import json
-import os
+import argparse
 import itertools
 from functools import partial
-from pprint import pprint
 
 from std_msgs.msg import Header, String
 from geometry_msgs.msg import  Pose2D
@@ -68,6 +66,19 @@ if __name__ == "__main__":
     menu_commands_pub = rospy.Publisher('/cairo_2d_sim/menu_commands', MenuCommands, queue_size=5)
     state_pub = rospy.Publisher("/cairo_2d_sim/robot_state_replay", Pose2DStamped, queue_size=5)
 
+    ########
+    # ARGS #
+    ########
+    arg_fmt = argparse.ArgumentDefaultsHelpFormatter
+    parser = argparse.ArgumentParser(formatter_class=arg_fmt)
+    parser.add_argument(
+        "-p", "--participant", dest="participant", default="1",
+        choices=["1", "2", "3"],
+        help='Which of the three participants to run: "1", "2" or "3"'
+        )
+    args = parser.parse_args(rospy.myargv()[1:])
+    participant = args.participant
+    
     #########################
     # CONSTANTS / VARIABLES #
     #########################
@@ -82,17 +93,17 @@ if __name__ == "__main__":
     EXTENSION_DISTANCE = 25
     MAX_SEGMENT_PLANNING_TIME = 60
     MAX_ITERS = 5000
-    EVAL_OUTPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/bias_optfk/output")
-    GOLD_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/bias_optfk/input/gold/*.json")
-    TRAINING_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/bias_optfk/input/demos_1/*.json")
+    EVAL_OUTPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/output".format(participant))
+    GOLD_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/gold/*.json".format(participant))
+    TRAINING_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/input/*.json".format(participant))
     TRIALS = 10
-    
+
     ##############
     # EVALUATION #
     ##############
     
     # The evaluation object.
-    evaluation = IPDRelaxEvaluation(EVAL_OUTPUT_DIRECTORY)
+    evaluation = IPDRelaxEvaluation(EVAL_OUTPUT_DIRECTORY, evaluation_name="bias_optkf")
         
     # Create the gold demonstration trajectory
     gold_demo_data = load_json_files(GOLD_DEMO_INPUT_DIRECTORY)["data"][0]
@@ -112,7 +123,7 @@ if __name__ == "__main__":
     # Constraint Intersection Optimizers #
     ######################################
     optimization_map = {}
-    optimization_map[(1, 2)] = DualIntersectionWithTargetingOptimization((405, 105), (405, 805), (800, 500))
+    optimization_map[(1, 2)] = DualIntersectionWithTargetingOptimization((405, 105), (405, 705), (800, 500))
     optimization_map[(2, 3)] = SingleIntersectionWithTargetingOptimization((1205, 100), (800, 500))
     
     for _ in range(0, TRIALS):
@@ -281,13 +292,14 @@ if __name__ == "__main__":
                                 IP_GEN_TYPES.append("optimization")
                             else:
                                 continue
+                        IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
+                        
                         # Evaluate TSR distance for each point.
                         if tsr is not None:
                             IP_TSR_DISTANCES.append(tsr.distance(waypoint))
                         else:
                             IP_TSR_DISTANCES.append(0)
                         
-                        IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
                         # Create a line between the two points. 
                         publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
                         # Send to the game renderer:

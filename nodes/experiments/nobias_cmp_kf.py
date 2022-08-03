@@ -92,7 +92,7 @@ if __name__ == "__main__":
     ##############
     
     # The evaluation object.
-    evaluation = IPDRelaxEvaluation(EVAL_OUTPUT_DIRECTORY)
+    evaluation = IPDRelaxEvaluation(EVAL_OUTPUT_DIRECTORY, evaluation_name="nobias_kf")
         
     # Create the gold demonstration trajectory
     gold_demo_data = load_json_files(GOLD_DEMO_INPUT_DIRECTORY)["data"][0]
@@ -112,7 +112,7 @@ if __name__ == "__main__":
     # Constraint Intersection Optimizers #
     ######################################
     optimization_map = {}
-    optimization_map[(1, 2)] = DualIntersectionWithTargetingOptimization((405, 105), (405, 805), (800, 500))
+    optimization_map[(1, 2)] = DualIntersectionWithTargetingOptimization((405, 105), (405, 705), (800, 500))
     optimization_map[(2, 3)] = SingleIntersectionWithTargetingOptimization((1205, 100), (800, 500))
     
     for _ in range(0, TRIALS):
@@ -122,6 +122,7 @@ if __name__ == "__main__":
         EVAL_CONSTRAINT_ORDER = []
         IP_GEN_TIMES = []
         IP_GEN_TYPES = []
+        IP_TSR_DISTANCES = []
         PLANNING_FAILURE = False
         
         #################################################
@@ -244,7 +245,15 @@ if __name__ == "__main__":
                         found = True
                         IP_GEN_TYPES.append("direct")
                         IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
-                         # Create a line between the two points. 
+                        
+                        tsr = c2tsr_map.get(planning_G.nodes[e1]["constraint_ids"], None)
+                        # Evaluate TSR distance for each point.
+                        if tsr is not None:
+                            IP_TSR_DISTANCES.append(tsr.distance(waypoint))
+                        else:
+                            IP_TSR_DISTANCES.append(0)
+                        
+                        # Create a line between the two points. 
                         publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
                         # Send to the game renderer:
                         publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
@@ -270,6 +279,15 @@ if __name__ == "__main__":
                         found = True
                         IP_GEN_TYPES.append("direct")
                         IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_2"))
+                        
+                        tsr = c2tsr_map.get(planning_G.nodes[e2]["constraint_ids"], None)
+                        # Evaluate TSR distance for each point.
+                        if tsr is not None:
+                            IP_TSR_DISTANCES.append(tsr.distance(waypoint))
+                        else:
+                            IP_TSR_DISTANCES.append(0)
+                        
+                        
                          # Create a line between the two points. 
                         publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
                         # Send to the game renderer:
@@ -343,6 +361,8 @@ if __name__ == "__main__":
             eval_trial.a2f_percentage = eval_trial.eval_a2f(TRAJECTORY_SEGMENTS, c2tsr_map, EVAL_CONSTRAINT_ORDER)
             eval_trial.ip_gen_times = IP_GEN_TIMES
             eval_trial.ip_gen_types = IP_GEN_TYPES
+            eval_trial.ip_tsr_distances = IP_TSR_DISTANCES
+            eval_trial.trajectory = trajectory
             evaluation.add_trial(eval_trial)
             # Execute
             prior_time = timed_trajectory[0][0]
