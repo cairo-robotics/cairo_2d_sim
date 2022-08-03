@@ -1,0 +1,6 @@
+<launch>
+
+    <node pkg="cairo_2d_sim" name="experiment" type="experiment.py" output="screen" cwd="node" args="-p 1 -b 1 -i optkf"/>
+    <node pkg="cairo_2d_sim" name="replay" type="replay.py" output = "screen" cwd="node"/>
+
+</launch>
