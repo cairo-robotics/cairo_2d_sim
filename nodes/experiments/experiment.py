@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 import os
+import time
 import argparse
 import itertools
 from functools import partial
@@ -108,14 +109,14 @@ if __name__ == "__main__":
     EVAL_OUTPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/output".format(participant))
     GOLD_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/gold/*.json".format(participant))
     TRAINING_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/input/*.json".format(participant))
-    TRIALS = 10
+    TRIALS = 4
     
     ##############
     # EVALUATION #
     ##############
     
     # The evaluation object.
-    evaluation = IPDRelaxEvaluation(EVAL_OUTPUT_DIRECTORY, evaluation_name="bias_kf")
+    evaluation = IPDRelaxEvaluation(EVAL_OUTPUT_DIRECTORY, participant=participant, biased_planning=biased_planning, ip_style=ip_style)
         
     # Create the gold demonstration trajectory
     gold_demo_data = load_json_files(GOLD_DEMO_INPUT_DIRECTORY)["data"][0]
@@ -129,6 +130,7 @@ if __name__ == "__main__":
     c2tsr_map[()] = UnconstrainedTSR()
     c2tsr_map[(1,)] = LineTSR((405, 105), (405, 805))
     c2tsr_map[(2,)] = DualLineTargetingTSR([405, 100], [1205, 100], [405, 705], [1205, 705], [805, 500])
+    c2tsr_map[(1, 2)] = DualLineTargetingTSR([405, 100], [1205, 100], [405, 705], [1205, 705], [805, 500])
     c2tsr_map[(3,)] = LineTSR((1205, 105), (1205, 505))
 
     ######################################
@@ -306,7 +308,6 @@ if __name__ == "__main__":
                                 else:
                                     continue
                             elif not found:
-                                print(point_optimizer)
                                 waypoint = point_optimizer.solve(candidate_point)
                                 if waypoint is not None:
                                     planning_G.nodes[e1]["waypoint"] = waypoint
@@ -370,7 +371,6 @@ if __name__ == "__main__":
                                 else:
                                     continue
                             elif not found:
-                                print(point_optimizer)
                                 waypoint = point_optimizer.solve(candidate_point)
                                 if waypoint is not None:
                                     planning_G.nodes[e2]["waypoint"] = waypoint
@@ -398,10 +398,10 @@ if __name__ == "__main__":
                     end = list(planning_G.nodes[e2]["waypoint"])
                 print(e1, e2)
                 print(start, end)
+                print(tsr)
                 if e2 != "goal":
-                    print(planning_G.nodes[e2]["constraint_ids"])
+                    print(planning_G.nodes[e1].get("constraint_ids", []))
                 print(planning_G.edges[edge]["planning_tsr"])
-                print()
                 
                 # Constrained motion planning for specific manifold segment
                 state_space = planning_G.edges[edge]["planning_state_space"]
@@ -459,6 +459,7 @@ if __name__ == "__main__":
             eval_trial.ip_gen_times = IP_GEN_TIMES
             eval_trial.ip_gen_types = IP_GEN_TYPES
             eval_trial.ip_tsr_distances = IP_TSR_DISTANCES
+            eval_trial.trajectory = trajectory
             evaluation.add_trial(eval_trial)
             # Execute
             prior_time = timed_trajectory[0][0]
@@ -480,14 +481,22 @@ if __name__ == "__main__":
             menu_commands_pub.publish(mc)
         else:
             # Update trial evaluation data with failure-style data.
-            eval_trial.success = X
+            eval_trial.success = "X"
             evaluation.add_trial(eval_trial)
 
             mc = MenuCommands()
             mc.restart.data = True
             menu_commands_pub.publish(mc)
-           
+
+    # delays to allow replay to be ready to receive commans again
+    time.sleep(1)
+    mc = MenuCommands()
+    mc.restart.data = True
+    menu_commands_pub.publish(mc)
+    
     evaluation.export()
+    
+    time.sleep(1)
     mc = MenuCommands()
     mc.quit.data = True
     menu_commands_pub.publish(mc)

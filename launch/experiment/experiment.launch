@@ -1,6 +1,8 @@
 <launch>
-
-    <node pkg="cairo_2d_sim" name="experiment" type="experiment.py" output="screen" cwd="node" args="-p 1 -b 1 -i optkf"/>
+    <arg name="participant" default="1"/>
+    <arg name="biased" default="1"/>
+    <arg name="ip_style" default="optkf"/>
+    <node pkg="cairo_2d_sim" name="experiment" type="experiment.py" output="screen" cwd="node" args="-p $(arg participant) -b $(arg biased) -i $(arg ip_style)"/>
     <node pkg="cairo_2d_sim" name="replay" type="replay.py" output = "screen" cwd="node"/>
 
 </launch>

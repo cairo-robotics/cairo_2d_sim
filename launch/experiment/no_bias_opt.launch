@@ -1,6 +1,7 @@
 <launch>
-
-    <node pkg="cairo_2d_sim" name="no_bias_opt_only" type="nobias_cmp_opt.py" output = "screen" cwd="node"/>
+    <arg name="participant" default="1"/>
+    <arg name="biased" default="0"/>
+    <arg name="ip_style" default="opt"/>
+    <node pkg="cairo_2d_sim" name="experiment" type="experiment.py" output="screen" cwd="node" args="-p $(arg participant) -b $(arg biased) -i $(arg ip_style)"/>
     <node pkg="cairo_2d_sim" name="replay" type="replay.py" output = "screen" cwd="node"/>
-
 </launch>
