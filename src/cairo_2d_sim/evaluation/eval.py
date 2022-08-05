@@ -8,19 +8,25 @@ from scipy.spatial.distance import euclidean
 
 
 class IPDRelaxEvaluation():
-    
-    def __init__(self, output_dir, evaluation_name):
+
+    def __init__(self, output_dir, participant, biased_planning, ip_style):
         self.output_dir = output_dir
-        self.evaluation_name = evaluation_name
+        self.particpant = participant
+        self.planning_bias = str(biased_planning) # comes in as an int
+        self.ip_style = ip_style
         self.trials = []
-        
+
     def add_trial(self, trial):
         self.trials.append(trial)
 
     def export(self):
-        file_name = self.evaluation_name + ".json"
+        file_name = self._snake_case_name() + ".json"
         output_path = os.path.join(self.output_dir, file_name)
-        trials_data = []
+        trials_data = {}
+        trials_data["participant"] = self.particpant
+        trials_data["planning_bias"] = self.planning_bias
+        trials_data["ip_style"] = self.ip_style
+        trials_data["trials"] = []
         for trial in self.trials:
             trial_data = {}
             trial_data["path_length"] = trial.path_length
@@ -33,15 +39,17 @@ class IPDRelaxEvaluation():
             trial_data["ip_tsr_distances"] = trial.ip_tsr_distances
             trial_data["trajectory"] = trial.trajectory
             trial_data["notes"] = trial.notes
-            trials_data.append(trial_data)
-    
+            trials_data["trials"].append(trial_data)
+
         with open(output_path, 'w') as f:
             json.dump(trials_data, f)
 
-    
-    
+    def _snake_case_name(self):
+        return "{}_{}_{}".format(self.particpant, self.planning_bias, self.ip_style)
+
+
 class IPDRelaxEvaluationTrial():
-    
+
     def __init__(self):
         self.path_length = -1
         self.a2s_distance = -1
@@ -54,7 +62,7 @@ class IPDRelaxEvaluationTrial():
         self.ip_tsr_distances = []
         self.notes = "None"
         self.timers = {}
-        
+
     def eval_path_length(self, trajectory):
         total_path_length = 0
         for i in range(len(trajectory) - 1):
@@ -70,7 +78,7 @@ class IPDRelaxEvaluationTrial():
             t2 = gold_trajectory
         dist, _ = fastdtw(t1, t2)
         return dist
-    
+
     def eval_success(self, trajectory, goal_point, epsilon=25):
         dist_xy = euclidean(trajectory[-1][:2], goal_point[:2])
         delta_theta = abs(trajectory[-1][2] - goal_point[2])
@@ -79,12 +87,13 @@ class IPDRelaxEvaluationTrial():
             return True
         else:
             return False
-    
+
     def eval_a2f(self, trajectory_segments, constraint_eval_map, constraint_ordering):
         results = []
         for idx, segment in enumerate(trajectory_segments):
             if constraint_ordering[idx] is not None:
-                evaluator = constraint_eval_map.get(constraint_ordering[idx], None)
+                evaluator = constraint_eval_map.get(
+                    constraint_ordering[idx], None)
                 if evaluator is not None:
                     for point in segment:
                         results.append(evaluator.validate(point))
@@ -92,16 +101,15 @@ class IPDRelaxEvaluationTrial():
                 for point in segment:
                     results.append(True)
         return sum(results) / len(results)
-    
+
     def eval_tsr_distance(self, steering_point, tsr):
         distance = tsr.distance(steering_point)
         return distance
-        
+
     def start_timer(self, name):
         self.timers[name] = time.perf_counter()
-    
+
     def end_timer(self, name):
         tic = self.timers[name]
         toc = time.perf_counter()
         return toc - tic
-

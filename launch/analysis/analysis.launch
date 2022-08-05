@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="cairo_2d_sim" name="analysis" type="analysis.py" output="screen" cwd="node"/>
+</launch>
