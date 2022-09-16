@@ -109,8 +109,9 @@ if __name__ == "__main__":
     EVAL_OUTPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/output".format(participant))
     GOLD_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/gold/*.json".format(participant))
     TRAINING_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/input/*.json".format(participant))
-    TRIALS = 4
-    
+    TRIALS = 2
+    EXECUTE_PATH = False
+
     ##############
     # EVALUATION #
     ##############
@@ -461,21 +462,23 @@ if __name__ == "__main__":
             eval_trial.ip_tsr_distances = IP_TSR_DISTANCES
             eval_trial.trajectory = trajectory
             evaluation.add_trial(eval_trial)
-            # Execute
-            prior_time = timed_trajectory[0][0]
-            for point in timed_trajectory:
-                header = Header()
-                header.stamp = rospy.Time.now()
-                pose2d = Pose2D()
-                pose2d.x = point[1][0]
-                pose2d.y = point[1][1]
-                pose2d.theta = point[1][2]
-                pose2dstamped = Pose2DStamped()
-                pose2dstamped.header = header
-                pose2dstamped.pose2d = pose2d
-                state_pub.publish(pose2dstamped)
-                rospy.sleep(point[0] - prior_time)
-                prior_time = point[0]
+            
+            if EXECUTE_PATH:
+                # Execute
+                prior_time = timed_trajectory[0][0]
+                for point in timed_trajectory:
+                    header = Header()
+                    header.stamp = rospy.Time.now()
+                    pose2d = Pose2D()
+                    pose2d.x = point[1][0]
+                    pose2d.y = point[1][1]
+                    pose2d.theta = point[1][2]
+                    pose2dstamped = Pose2DStamped()
+                    pose2dstamped.header = header
+                    pose2dstamped.pose2d = pose2d
+                    state_pub.publish(pose2dstamped)
+                    rospy.sleep(point[0] - prior_time)
+                    prior_time = point[0]
             mc = MenuCommands()
             mc.restart.data = True
             menu_commands_pub.publish(mc)
