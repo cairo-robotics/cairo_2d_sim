@@ -109,8 +109,10 @@ if __name__ == "__main__":
     EVAL_OUTPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/output".format(participant))
     GOLD_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/gold/*.json".format(participant))
     TRAINING_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/input/*.json".format(participant))
-    TRIALS = 4
-    
+    TRIALS = 2
+    EXECUTE_PATH = True
+    PUBLISH_TEXT_LABEL = False
+
     ##############
     # EVALUATION #
     ##############
@@ -322,16 +324,17 @@ if __name__ == "__main__":
                     else:
                         IP_TSR_DISTANCES.append(0)
 
-                    IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
-                    # Create a line between the two points. 
-                    publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
-                    # Send to the game renderer:
-                    publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
-                        # Send the label to the rendered:
-                    publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e1]["constraint_ids"]), [0, 0, 0])
-                    # Send the updated correct point
-                    publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
-                    start = list(waypoint)
+                        IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
+                        # Create a line between the two points. 
+                        publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
+                        # Send to the game renderer:
+                        publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
+                         # Send the label to the rendered:
+                        if PUBLISH_TEXT_LABEL:
+                            publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e1]["constraint_ids"]), [0, 0, 0])
+                        # Send the updated correct point
+                        publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
+                        start = list(waypoint)
                 else:
                     start = list(planning_G.nodes[e1]["waypoint"])
                 if  planning_G.nodes[e2].get("waypoint", None) is None:
@@ -378,22 +381,23 @@ if __name__ == "__main__":
                                     IP_GEN_TYPES.append("optimization")
                                 else:
                                     continue
-                    IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_2"))
-                    # Evaluate TSR distance for each point.
-                    tsr = c2tsr_map.get(planning_G.nodes[e2]["constraint_ids"], None)
-                    if tsr is not None:
-                        IP_TSR_DISTANCES.append(tsr.distance(waypoint))
-                    else:
-                        IP_TSR_DISTANCES.append(0)
-                        # Create a line between the two points. 
-                    publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
-                    # Send to the game renderer:
-                    publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
-                        # Send the label to the rendered:
-                    publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e2]["constraint_ids"]), [0, 0, 0])
-                    # Send the updated correct point
-                    publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
-                    end = list(waypoint)
+                        IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_2"))
+                        # Evaluate TSR distance for each point.
+                        tsr = c2tsr_map.get(planning_G.nodes[e2]["constraint_ids"], None)
+                        if tsr is not None:
+                            IP_TSR_DISTANCES.append(tsr.distance(waypoint))
+                        else:
+                            IP_TSR_DISTANCES.append(0)
+                         # Create a line between the two points. 
+                        publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
+                        # Send to the game renderer:
+                        publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
+                         # Send the label to the rendered:
+                        if PUBLISH_TEXT_LABEL:
+                            publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e2]["constraint_ids"]), [0, 0, 0])
+                        # Send the updated correct point
+                        publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
+                        end = list(waypoint)
                 else:
                     end = list(planning_G.nodes[e2]["waypoint"])
                 print(e1, e2)
@@ -461,24 +465,27 @@ if __name__ == "__main__":
             eval_trial.ip_tsr_distances = IP_TSR_DISTANCES
             eval_trial.trajectory = trajectory
             evaluation.add_trial(eval_trial)
-            # Execute
-            prior_time = timed_trajectory[0][0]
-            for point in timed_trajectory:
-                header = Header()
-                header.stamp = rospy.Time.now()
-                pose2d = Pose2D()
-                pose2d.x = point[1][0]
-                pose2d.y = point[1][1]
-                pose2d.theta = point[1][2]
-                pose2dstamped = Pose2DStamped()
-                pose2dstamped.header = header
-                pose2dstamped.pose2d = pose2d
-                state_pub.publish(pose2dstamped)
-                rospy.sleep(point[0] - prior_time)
-                prior_time = point[0]
+            
+            if EXECUTE_PATH:
+                # Execute
+                prior_time = timed_trajectory[0][0]
+                for point in timed_trajectory:
+                    header = Header()
+                    header.stamp = rospy.Time.now()
+                    pose2d = Pose2D()
+                    pose2d.x = point[1][0]
+                    pose2d.y = point[1][1]
+                    pose2d.theta = point[1][2]
+                    pose2dstamped = Pose2DStamped()
+                    pose2dstamped.header = header
+                    pose2dstamped.pose2d = pose2d
+                    state_pub.publish(pose2dstamped)
+                    rospy.sleep(point[0] - prior_time)
+                    prior_time = point[0]
             mc = MenuCommands()
             mc.restart.data = True
             menu_commands_pub.publish(mc)
+            time.sleep(4)
         else:
             # Update trial evaluation data with failure-style data.
             eval_trial.success = "X"

@@ -79,14 +79,19 @@ class IPDRelaxEvaluationTrial():
         dist, _ = fastdtw(t1, t2)
         return dist
 
-    def eval_success(self, trajectory, goal_point, epsilon=25):
+    def eval_success(self, trajectory, goal_point, epsilon=25, include_angle=False):
         dist_xy = euclidean(trajectory[-1][:2], goal_point[:2])
         delta_theta = abs(trajectory[-1][2] - goal_point[2])
         diff_theta = abs((delta_theta + 180) % 360 - 180)
-        if dist_xy < epsilon and diff_theta < 10:
-            return True
+        if include_angle:
+            if dist_xy < epsilon and diff_theta < 10:
+                return True
+            else: return False
         else:
-            return False
+            if dist_xy < epsilon:
+                return True
+            else:
+                return False
 
     def eval_a2f(self, trajectory_segments, constraint_eval_map, constraint_ordering):
         results = []
