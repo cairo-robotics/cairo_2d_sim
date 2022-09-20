@@ -273,8 +273,8 @@ if __name__ == "__main__":
                 # check if the starting point for the segment has generated already:
                 if  planning_G.nodes[e1].get("waypoint", None) is None:
                     found = False
+                    eval_trial.start_timer("steering_point_generation_1")
                     while not found:
-                        eval_trial.start_timer("steering_point_generation_1")
                         # Sample a candidate point acording to to the intersection point style condition          #
                         if ip_style == "kf" or ip_style == "optkf":
                             # In this case, the candidate point is derived
@@ -315,23 +315,23 @@ if __name__ == "__main__":
                                     IP_GEN_TYPES.append("optimization")
                                 else:
                                     continue
-                        # Evaluate TSR distance for each point.
-                        tsr = c2tsr_map.get(planning_G.nodes[e1]["constraint_ids"], None)
-                        if tsr is not None:
-                            IP_TSR_DISTANCES.append(tsr.distance(waypoint))
-                        else:
-                            IP_TSR_DISTANCES.append(0)
+                    # Evaluate TSR distance for each point.
+                    tsr = c2tsr_map.get(planning_G.nodes[e1]["constraint_ids"], None)
+                    if tsr is not None:
+                        IP_TSR_DISTANCES.append(tsr.distance(waypoint))
+                    else:
+                        IP_TSR_DISTANCES.append(0)
 
-                        IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
-                        # Create a line between the two points. 
-                        publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
-                        # Send to the game renderer:
-                        publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
-                         # Send the label to the rendered:
-                        publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e1]["constraint_ids"]), [0, 0, 0])
-                        # Send the updated correct point
-                        publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
-                        start = list(waypoint)
+                    IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
+                    # Create a line between the two points. 
+                    publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
+                    # Send to the game renderer:
+                    publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
+                        # Send the label to the rendered:
+                    publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e1]["constraint_ids"]), [0, 0, 0])
+                    # Send the updated correct point
+                    publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
+                    start = list(waypoint)
                 else:
                     start = list(planning_G.nodes[e1]["waypoint"])
                 if  planning_G.nodes[e2].get("waypoint", None) is None:
@@ -378,22 +378,22 @@ if __name__ == "__main__":
                                     IP_GEN_TYPES.append("optimization")
                                 else:
                                     continue
-                        IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_2"))
-                        # Evaluate TSR distance for each point.
-                        tsr = c2tsr_map.get(planning_G.nodes[e2]["constraint_ids"], None)
-                        if tsr is not None:
-                            IP_TSR_DISTANCES.append(tsr.distance(waypoint))
-                        else:
-                            IP_TSR_DISTANCES.append(0)
-                         # Create a line between the two points. 
-                        publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
-                        # Send to the game renderer:
-                        publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
-                         # Send the label to the rendered:
-                        publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e2]["constraint_ids"]), [0, 0, 0])
-                        # Send the updated correct point
-                        publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
-                        end = list(waypoint)
+                    IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_2"))
+                    # Evaluate TSR distance for each point.
+                    tsr = c2tsr_map.get(planning_G.nodes[e2]["constraint_ids"], None)
+                    if tsr is not None:
+                        IP_TSR_DISTANCES.append(tsr.distance(waypoint))
+                    else:
+                        IP_TSR_DISTANCES.append(0)
+                        # Create a line between the two points. 
+                    publish_line(line_static_pub, list(candidate_point[0:2]), waypoint[0:2], [0, 0, 0])
+                    # Send to the game renderer:
+                    publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
+                        # Send the label to the rendered:
+                    publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e2]["constraint_ids"]), [0, 0, 0])
+                    # Send the updated correct point
+                    publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
+                    end = list(waypoint)
                 else:
                     end = list(planning_G.nodes[e2]["waypoint"])
                 print(e1, e2)
