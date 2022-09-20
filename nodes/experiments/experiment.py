@@ -110,7 +110,8 @@ if __name__ == "__main__":
     GOLD_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/gold/*.json".format(participant))
     TRAINING_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/input/*.json".format(participant))
     TRIALS = 2
-    EXECUTE_PATH = False
+    EXECUTE_PATH = True
+    PUBLISH_TEXT_LABEL = False
 
     ##############
     # EVALUATION #
@@ -329,7 +330,8 @@ if __name__ == "__main__":
                         # Send to the game renderer:
                         publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
                          # Send the label to the rendered:
-                        publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e1]["constraint_ids"]), [0, 0, 0])
+                        if PUBLISH_TEXT_LABEL:
+                            publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e1]["constraint_ids"]), [0, 0, 0])
                         # Send the updated correct point
                         publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
                         start = list(waypoint)
@@ -391,7 +393,8 @@ if __name__ == "__main__":
                         # Send to the game renderer:
                         publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
                          # Send the label to the rendered:
-                        publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e2]["constraint_ids"]), [0, 0, 0])
+                        if PUBLISH_TEXT_LABEL:
+                            publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e2]["constraint_ids"]), [0, 0, 0])
                         # Send the updated correct point
                         publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
                         end = list(waypoint)
@@ -482,6 +485,7 @@ if __name__ == "__main__":
             mc = MenuCommands()
             mc.restart.data = True
             menu_commands_pub.publish(mc)
+            time.sleep(4)
         else:
             # Update trial evaluation data with failure-style data.
             eval_trial.success = "X"
