@@ -109,8 +109,8 @@ if __name__ == "__main__":
     EVAL_OUTPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/output".format(participant))
     GOLD_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/gold/*.json".format(participant))
     TRAINING_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/input/*.json".format(participant))
-    TRIALS = 2
-    EXECUTE_PATH = True
+    TRIALS = 50
+    EXECUTE_PATH = False
     PUBLISH_TEXT_LABEL = False
 
     ##############
