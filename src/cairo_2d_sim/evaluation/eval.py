@@ -98,7 +98,7 @@ class IPDRelaxEvaluationTrial():
         for idx, segment in enumerate(trajectory_segments):
             if constraint_ordering[idx] is not None:
                 evaluator = constraint_eval_map.get(
-                    constraint_ordering[idx], None)
+                    tuple(constraint_ordering[idx]), None)
                 if evaluator is not None:
                     for point in segment:
                         results.append(evaluator.validate(point))
