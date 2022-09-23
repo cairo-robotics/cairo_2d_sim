@@ -41,7 +41,7 @@ class LineStatic:
         self.color = color if color is not None else [0, 0, 0]
     
     def render(self, screen):
-        pg.draw.line(screen, self.color, (self.x1, self.y1), (self.x2, self.y2), width=15)
+        pg.draw.line(screen, self.color, (self.x1, self.y1), (self.x2, self.y2), width=10)
 
 class CircleStatic:
 
