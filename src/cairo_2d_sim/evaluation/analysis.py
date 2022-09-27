@@ -3,8 +3,8 @@ import json
 import glob
 
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+# import matplotlib.pyplot as plt
+# import seaborn as sns
 
 
 def ip_style_to_name(ip_style):
@@ -57,7 +57,9 @@ class PlanningTimeAnalysis():
         
     def stats(self):
         df = self.dataframe[["participant", "planning_bias", "ip_style", "planning_time"]]
-        return df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
+        mean = df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
+        std = df.groupby(['participant', 'planning_bias', 'ip_style']).std()
+        return mean, std
 
     
     def _import_data(self):
@@ -81,7 +83,9 @@ class PathLengthAnalysis():
         
     def stats(self):
         df = self.dataframe[["participant", "planning_bias", "ip_style", "path_length"]]
-        return df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
+        mean = df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
+        std = df.groupby(['participant', 'planning_bias', 'ip_style']).std()
+        return mean, std
 
     
     def _import_data(self):
@@ -105,7 +109,9 @@ class A2SAnalysis():
         
     def stats(self):
         df = self.dataframe[["participant", "planning_bias", "ip_style", "a2s_distance"]]
-        return df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
+        mean = df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
+        std = df.groupby(['participant', 'planning_bias', 'ip_style']).std()
+        return mean, std
 
     
     def _import_data(self):
@@ -129,7 +135,9 @@ class A2FAnalysis():
         
     def stats(self):
         df = self.dataframe[["participant", "planning_bias", "ip_style", "a2f_percentage"]]
-        return df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
+        mean = df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
+        std = df.groupby(['participant', 'planning_bias', 'ip_style']).std()
+        return mean, std
 
     def _import_data(self):
         return import_data_as_dataframe(self.data_directory)
