@@ -41,13 +41,12 @@ def observation_xytheta_vectorizor(ob):
 
 def extract_constraint_map_key(orderd_constraint_dict):
     constraint_key = []
-    for key in orderd_constraint_dict.keys():
-        if orderd_constraint_dict["c1"] is True:
-            constraint_key.append(1)
-        if orderd_constraint_dict["c2"] is True:
-            constraint_key.append(2)
-        if orderd_constraint_dict["c3"] is True:
-            constraint_key.append(3)
+    if orderd_constraint_dict["c1"] is True:
+        constraint_key.append(1)
+    if orderd_constraint_dict["c2"] is True:
+        constraint_key.append(2)
+    if orderd_constraint_dict["c3"] is True:
+        constraint_key.append(3)
     return constraint_key
 
 
@@ -95,8 +94,8 @@ if __name__ == "__main__":
     X_DOMAIN = [0, 1800]
     Y_DOMAIN = [0, 1000]
     THETA_DOMAIN = [0, 360]
-    KEYFRAME_KDE_BANDWIDTH = .35
-    SAMPLING_BIAS_KDE_BANDWIDTH = .05
+    KEYFRAME_KDE_BANDWIDTH = .15
+    SAMPLING_BIAS_KDE_BANDWIDTH = .15
     MOVE_TIME = 10
     EPSILON = 50
     EXTENSION_DISTANCE = 25
@@ -200,8 +199,7 @@ if __name__ == "__main__":
         start = (100, 500, 360)
 
         # Create a starting node for the planning graph.
-        planning_G.add_nodes_from([("start", {"waypoint": start, "tsr": c2tsr_map[(1,)]})])
-        EVAL_CONSTRAINT_ORDER.append((1,))
+        planning_G.add_nodes_from([("start", {"waypoint": start, "tsr": None})])
         
         prior_planning_G_vertex_id = 0
         for cur_node in lfd.G.get_keyframe_sequence():
@@ -307,7 +305,10 @@ if __name__ == "__main__":
                                 else:
                                     continue
                             elif not found:
-                                waypoint = point_optimizer.solve(candidate_point)
+                                if ip_style == "optkf":
+                                    waypoint = point_optimizer.solve(candidate_point)
+                                else:
+                                    waypoint = point_optimizer.solve(candidate_point, no_kf=True)
                                 if waypoint is not None:
                                     planning_G.nodes[e1]["waypoint"] = waypoint
                                     found = True
@@ -371,7 +372,10 @@ if __name__ == "__main__":
                                 else:
                                     continue
                             elif not found:
-                                waypoint = point_optimizer.solve(candidate_point)
+                                if ip_style == "optkf":
+                                    waypoint = point_optimizer.solve(candidate_point)
+                                else:
+                                    waypoint = point_optimizer.solve(candidate_point, no_kf=True)
                                 if waypoint is not None:
                                     planning_G.nodes[e2]["waypoint"] = waypoint
                                     found = True

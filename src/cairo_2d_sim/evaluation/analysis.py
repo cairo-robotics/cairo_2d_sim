@@ -56,10 +56,39 @@ class PlanningTimeAnalysis():
     #     plt.close()
         
     def stats(self):
-        df = self.dataframe[["participant", "planning_bias", "ip_style", "planning_time"]]
+        successful_df = self.dataframe[self.dataframe['success'] == True]
+        df = successful_df[["participant", "planning_bias", "ip_style", "planning_time"]]
         mean = df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
         std = df.groupby(['participant', 'planning_bias', 'ip_style']).std()
         return mean, std
+
+    
+    def _import_data(self):
+        return import_data_as_dataframe(self.data_directory)
+    
+
+class SuccessPercentageAnalysis():
+
+    def __init__(self, data_directory):
+        self.data_directory = data_directory
+        self.dataframe = self._import_data()
+
+
+    # def bar_chart(self):
+
+    #     df = self.dataframe[["participant", "planning_bias", "ip_style", "planning_time"]]
+    #     df = df.set_index(['participant', 'planning_bias', 'ip_style'])     
+    #     # plot dfl
+    #     ax = sns.barplot(data=df)  # RUN PLOT   
+    #     plt.legend(bbox_to_anchor=(1.04, 0.5), loc="center left", borderaxespad=0)
+    #     plt.close()
+        
+    def stats(self):
+        self.dataframe['success'] = self.dataframe['success'].replace(['X'], False)
+        df = self.dataframe[["participant", "planning_bias", "ip_style", "success"]]
+        success_df = df.groupby(['participant', 'planning_bias', 'ip_style'])['success'].mean()
+        success_percentage = success_df[success_df > 0.1]
+        return success_percentage
 
     
     def _import_data(self):
@@ -82,7 +111,8 @@ class PathLengthAnalysis():
     #     plt.close()
         
     def stats(self):
-        df = self.dataframe[["participant", "planning_bias", "ip_style", "path_length"]]
+        successful_df = self.dataframe[self.dataframe['success'] == True]
+        df = successful_df[["participant", "planning_bias", "ip_style", "path_length"]]
         mean = df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
         std = df.groupby(['participant', 'planning_bias', 'ip_style']).std()
         return mean, std
@@ -108,7 +138,8 @@ class A2SAnalysis():
     #     plt.close()
         
     def stats(self):
-        df = self.dataframe[["participant", "planning_bias", "ip_style", "a2s_distance"]]
+        successful_df = self.dataframe[self.dataframe['success'] == True]
+        df = successful_df[["participant", "planning_bias", "ip_style", "a2s_distance"]]
         mean = df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
         std = df.groupby(['participant', 'planning_bias', 'ip_style']).std()
         return mean, std
@@ -134,7 +165,8 @@ class A2FAnalysis():
     #     plt.close()
         
     def stats(self):
-        df = self.dataframe[["participant", "planning_bias", "ip_style", "a2f_percentage"]]
+        successful_df = self.dataframe[self.dataframe['success'] == True]
+        df = successful_df[["participant", "planning_bias", "ip_style", "a2f_percentage"]]
         mean = df.groupby(['participant', 'planning_bias', 'ip_style']).mean()
         std = df.groupby(['participant', 'planning_bias', 'ip_style']).std()
         return mean, std

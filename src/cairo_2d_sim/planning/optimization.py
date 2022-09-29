@@ -15,7 +15,11 @@ class DualIntersectionOptimization():
         self.model = None
 
     
-    def solve(self, keyframe_point):
+    def solve(self, candidate_point, no_kf=False):
+        if no_kf:
+            weights = [1, 1, 0]
+        else:
+            weights = [1, 1, 1]
         m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
@@ -35,24 +39,24 @@ class DualIntersectionOptimization():
                     'minlp_gap_tol 0.01']
 
         # Initialize variables
-        X = m.Var(value=keyframe_point[0])
-        Y = m.Var(value=keyframe_point[1])
+        X = m.Var(value=candidate_point[0])
+        Y = m.Var(value=candidate_point[1])
         # Integer variables.
         A = m.Var(lb=0, ub=1, integer=True)
      
         # Distance equations
 
-        distance_from_first_intersection = A * ((X - self.first_intersection[0])**2 +
+        distance_from_first_intersection = weights[0] * A * ((X - self.first_intersection[0])**2 +
              (Y - self.first_intersection[1])**2)**0.5
 
-        distance_from_second_intersection = (
+        distance_from_second_intersection = weights[1] * (
             1-A) * ((X - self.second_intersection[0])**2 + (Y - self.second_intersection[1])**2)**0.5
 
         distance_from_intersection_combined = distance_from_first_intersection + \
             distance_from_second_intersection
             
-        distance_from_keyframe_point = (
-            (X - keyframe_point[0])**2 + (Y - keyframe_point[1])**2)**0.5
+        distance_from_keyframe_point = weights[2] * (
+            (X - candidate_point[0])**2 + (Y - candidate_point[1])**2)**0.5
         
         m.Equation(X <= self.width)
         m.Equation(X >= 0)
@@ -89,7 +93,12 @@ class DualIntersectionWithTargetingOptimization():
         self.model = None
 
     
-    def solve(self, keyframe_point):
+    def solve(self, keyframe_point, no_kf=False):
+        if no_kf is True:
+            weights = [1, 1, 0]
+        else:
+            weights = [1, 1, 1]
+        
         m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
@@ -117,16 +126,16 @@ class DualIntersectionWithTargetingOptimization():
      
         # Distance equations
 
-        distance_from_first_intersection = A * ((X - self.first_intersection[0])**2 +
+        distance_from_first_intersection = weights[0] * A * ((X - self.first_intersection[0])**2 +
              (Y - self.first_intersection[1])**2)**0.5
 
-        distance_from_second_intersection = (
+        distance_from_second_intersection = weights[1] * (
             1-A) * ((X - self.second_intersection[0])**2 + (Y - self.second_intersection[1])**2)**0.5
 
         distance_from_intersection_combined = distance_from_first_intersection + \
             distance_from_second_intersection
             
-        distance_from_keyframe_point = (
+        distance_from_keyframe_point = weights[2] * (
             (X - keyframe_point[0])**2 + (Y - keyframe_point[1])**2)**0.5
                 
         m.Equation(X <= self.width)
@@ -172,7 +181,11 @@ class SingleIntersectionWithTargetingOptimization():
         self.model = None
 
     
-    def solve(self, keyframe_point):
+    def solve(self, keyframe_point, no_kf=False):
+        if no_kf:
+            weights = [1, 0]
+        else:
+            weights = [1, 1]
         m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
@@ -198,10 +211,10 @@ class SingleIntersectionWithTargetingOptimization():
 
         # Distance equations
 
-        distance_from_intersection = ((X - self.intersection[0])**2 +
+        distance_from_intersection = weights[0] * ((X - self.intersection[0])**2 +
              (Y - self.intersection[1])**2)**0.5
 
-        distance_from_keyframe_point = (
+        distance_from_keyframe_point = weights[1] * (
             (X - keyframe_point[0])**2 + (Y - keyframe_point[1])**2)**0.5
         
         
@@ -245,7 +258,12 @@ class SingleIntersectionOptimization():
         self.model = None
 
     
-    def solve(self, keyframe_point):
+    def solve(self, keyframe_point, no_kf=False):
+        if no_kf:
+            weights = [1, 0]
+        else:
+            weights = [1, 1]
+
         m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
@@ -270,10 +288,10 @@ class SingleIntersectionOptimization():
 
         # Distance equations
 
-        distance_from_intersection = ((X - self.intersection[0])**2 +
+        distance_from_intersection = weights[0] * ((X - self.intersection[0])**2 +
              (Y - self.intersection[1])**2)**0.5
 
-        distance_from_keyframe_point = (
+        distance_from_keyframe_point = weights[1] * (
             (X - keyframe_point[0])**2 + (Y - keyframe_point[1])**2)**0.5
         
         m.Equation(X <= self.width)
