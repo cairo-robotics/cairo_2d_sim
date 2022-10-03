@@ -69,8 +69,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=arg_fmt)
     parser.add_argument(
         "-p", "--participant", dest="participant", default="1",
-        choices=["1", "2", "3"],
-        help='Which of the three participants to run: "1", "2" or "3"'
+        choices=["1", "2", "3", "4", "5"],
+        help='Which of the three participants to run: "1", "2", "3", "4", or "5"'
         )
     parser.add_argument(
         "-b", "--biased_planning", dest="biased_planning", default="1",
