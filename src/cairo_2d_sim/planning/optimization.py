@@ -15,8 +15,12 @@ class DualIntersectionOptimization():
         self.model = None
 
     
-    def solve(self, keyframe_point):
-        m = GEKKO() # Initialize gekko
+    def solve(self, candidate_point, no_kf=False):
+        if no_kf:
+            weights = [1, 1, 0]
+        else:
+            weights = [1, 1, 1]
+        m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
         # optional solver settings with APOPT
@@ -35,24 +39,24 @@ class DualIntersectionOptimization():
                     'minlp_gap_tol 0.01']
 
         # Initialize variables
-        X = m.Var(value=keyframe_point[0])
-        Y = m.Var(value=keyframe_point[1])
+        X = m.Var(value=candidate_point[0])
+        Y = m.Var(value=candidate_point[1])
         # Integer variables.
         A = m.Var(lb=0, ub=1, integer=True)
      
         # Distance equations
 
-        distance_from_first_intersection = A * ((X - self.first_intersection[0])**2 +
+        distance_from_first_intersection = weights[0] * A * ((X - self.first_intersection[0])**2 +
              (Y - self.first_intersection[1])**2)**0.5
 
-        distance_from_second_intersection = (
+        distance_from_second_intersection = weights[1] * (
             1-A) * ((X - self.second_intersection[0])**2 + (Y - self.second_intersection[1])**2)**0.5
 
         distance_from_intersection_combined = distance_from_first_intersection + \
             distance_from_second_intersection
             
-        distance_from_keyframe_point = (
-            (X - keyframe_point[0])**2 + (Y - keyframe_point[1])**2)**0.5
+        distance_from_keyframe_point = weights[2] * (
+            (X - candidate_point[0])**2 + (Y - candidate_point[1])**2)**0.5
         
         m.Equation(X <= self.width)
         m.Equation(X >= 0)
@@ -89,8 +93,13 @@ class DualIntersectionWithTargetingOptimization():
         self.model = None
 
     
-    def solve(self, keyframe_point):
-        m = GEKKO() # Initialize gekko
+    def solve(self, keyframe_point, no_kf=False):
+        if no_kf is True:
+            weights = [1, 1, 0]
+        else:
+            weights = [1, 1, 1]
+        
+        m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
         # optional solver settings with APOPT
@@ -117,16 +126,16 @@ class DualIntersectionWithTargetingOptimization():
      
         # Distance equations
 
-        distance_from_first_intersection = A * ((X - self.first_intersection[0])**2 +
+        distance_from_first_intersection = weights[0] * A * ((X - self.first_intersection[0])**2 +
              (Y - self.first_intersection[1])**2)**0.5
 
-        distance_from_second_intersection = (
+        distance_from_second_intersection = weights[1] * (
             1-A) * ((X - self.second_intersection[0])**2 + (Y - self.second_intersection[1])**2)**0.5
 
         distance_from_intersection_combined = distance_from_first_intersection + \
             distance_from_second_intersection
             
-        distance_from_keyframe_point = (
+        distance_from_keyframe_point = weights[2] * (
             (X - keyframe_point[0])**2 + (Y - keyframe_point[1])**2)**0.5
                 
         m.Equation(X <= self.width)
@@ -146,10 +155,16 @@ class DualIntersectionWithTargetingOptimization():
             print('X: ' + str(X.value))
             print('Y: ' + str(Y.value))
             print('T: ' + str(T.value))
+            print('Theta actual : ' + str(theta_actual))
             print('A: ' + str(A.value))
             print('Objective: ' + str(m.options.objfcnval))
             self.model.cleanup()
-            return [X.value[0], Y.value[0], T.value[0] % 360]
+            # Gekko doesn't have atan2 so we take either the reference angle or the opposite quadrant angle that is closes to the expected actual output.
+            if (theta_actual - T.value[0] % 360) < (theta_actual - (T.value[0] % 360 + 180)):
+                theta = T.value[0] % 360
+            else:
+                theta = ((T.value[0] % 360) + 180) % 360
+            return [X.value[0], Y.value[0], theta]
         except Exception as e:
             print(e)
             self.model.cleanup()
@@ -166,8 +181,12 @@ class SingleIntersectionWithTargetingOptimization():
         self.model = None
 
     
-    def solve(self, keyframe_point):
-        m = GEKKO() # Initialize gekko
+    def solve(self, keyframe_point, no_kf=False):
+        if no_kf:
+            weights = [1, 0]
+        else:
+            weights = [1, 1]
+        m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
         # optional solver settings with APOPT
@@ -192,10 +211,10 @@ class SingleIntersectionWithTargetingOptimization():
 
         # Distance equations
 
-        distance_from_intersection = ((X - self.intersection[0])**2 +
+        distance_from_intersection = weights[0] * ((X - self.intersection[0])**2 +
              (Y - self.intersection[1])**2)**0.5
 
-        distance_from_keyframe_point = (
+        distance_from_keyframe_point = weights[1] * (
             (X - keyframe_point[0])**2 + (Y - keyframe_point[1])**2)**0.5
         
         
@@ -210,13 +229,20 @@ class SingleIntersectionWithTargetingOptimization():
         self.model = m 
         try:
             self.model.solve(disp=False, debug=True)
+            theta_actual = 360 - atan2(self.target[1] - Y.value[0], self.target[0] - X.value[0]) * 180 / pi
             print('Results')
             print('X: ' + str(X.value))
             print('Y: ' + str(Y.value))
             print('T: ' + str(T.value))
+            print('Theta actual : ' + str(theta_actual))
             print('Objective: ' + str(m.options.objfcnval))
             self.model.cleanup()
-            return [X.value[0], Y.value[0], T.value[0] % 360]
+            # Gekko doesn't have atan2 so we take either the reference angle or the opposite quadrant angle that is closes to the expected actual output.
+            if (theta_actual - T.value[0] % 360) < (theta_actual - (T.value[0] % 360 + 180)):
+                theta = T.value[0] % 360
+            else:
+                theta = ((T.value[0] % 360) + 180) % 360
+            return [X.value[0], Y.value[0], theta]
         except Exception as e:
             print(e)
             self.model.cleanup()
@@ -232,8 +258,13 @@ class SingleIntersectionOptimization():
         self.model = None
 
     
-    def solve(self, keyframe_point):
-        m = GEKKO() # Initialize gekko
+    def solve(self, keyframe_point, no_kf=False):
+        if no_kf:
+            weights = [1, 0]
+        else:
+            weights = [1, 1]
+
+        m = GEKKO(remote=False) # Initialize gekko
         m.options.SOLVER=1  # APOPT is an MINLP solver. See https://apopt.com/download.php
 
         # optional solver settings with APOPT
@@ -257,10 +288,10 @@ class SingleIntersectionOptimization():
 
         # Distance equations
 
-        distance_from_intersection = ((X - self.intersection[0])**2 +
+        distance_from_intersection = weights[0] * ((X - self.intersection[0])**2 +
              (Y - self.intersection[1])**2)**0.5
 
-        distance_from_keyframe_point = (
+        distance_from_keyframe_point = weights[1] * (
             (X - keyframe_point[0])**2 + (Y - keyframe_point[1])**2)**0.5
         
         m.Equation(X <= self.width)

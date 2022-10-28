@@ -6,7 +6,7 @@ import itertools
 from functools import partial
 from pprint import pprint
 
-from std_msgs.msg import Header
+from std_msgs.msg import Header, String
 from geometry_msgs.msg import  Pose2D
 import numpy as np
 import rospy
@@ -14,13 +14,13 @@ import networkx as nx
 
 from cairo_2d_sim.planning.distribution import KernelDensityDistribution
 from cairo_2d_sim.planning.optimization import  DualIntersectionWithTargetingOptimization, SingleIntersectionWithTargetingOptimization
-from cairo_2d_sim.planning.constraints import UnconstrainedPRMTSR, LineConstraintPRMTSR, LineTargetingConstraintPRMTSR
+from cairo_2d_sim.planning.constraints import UnconstrainedTSR, LineTSR, DualLineTargetingTSR
 from cairo_2d_sim.planning.state_space import Holonomic2DStateSpace, Holonomic2DBiasedStateSpace, StateValidityChecker
 from cairo_2d_sim.planning.curve import xytheta_distance, parametric_xytheta_lerp, JointTrajectoryCurve
 from cairo_2d_sim.planning.planners import CPRM
 from cairo_2d_sim.msg import Pose2DStamped
 
-from cairo_lfd.core.environment import SimpleObservation, Demonstration
+from cairo_lfd.core.environment import Observation, Demonstration
 from cairo_lfd.core.lfd import LfD2D
 from cairo_lfd.data.alignment import DemonstrationAlignment
 from cairo_lfd.data.labeling import DemonstrationLabler
@@ -29,12 +29,9 @@ from cairo_lfd.data.io import load_json_files
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
-def demo_vectorizor(demonstrations):
-    vectorized_demos = []
-    for demo in demonstrations:
-        vectorized_demo = [[ob.data['robot']['x'], ob.data['robot']['y'], ob.data['robot']['theta']] for ob in demo]
-        vectorized_demos.append(vectorized_demo)
-    return vectorized_demos
+def demo_vectorizor(demo):
+    vectorized_demo = [[ob.data['robot']['x'], ob.data['robot']['y'], ob.data['robot']['theta']] for ob in demo.observations]
+    return vectorized_demo
 
 # def observation_xy_vectorizor(ob):
 #     return [ob.data['robot_state']['x'], ob.data['robot_state']['y']]
@@ -51,11 +48,25 @@ def extract_constraint_map_key(orderd_constraint_dict):
             constraint_key.append(2)
         if orderd_constraint_dict['c3'] is True:
             constraint_key.append(3)
-    return tuple(set(constraint_key))
-            
+    return list(set(constraint_key))
+
+def publish_directed_point(publisher, position, angle, radius, color):
+    data = {}
+    data['x'] = position[0]
+    data['y'] = position[1]
+    data['radius'] = radius
+    data['angle'] = angle
+    data['color'] = color
+    data_str = json.dumps(data)
+    publisher.publish(data_str)
 
 if __name__ == '__main__':
+    
+    ###############
+    # ROS THINGS  #
+    ##############
     rospy.init_node("optimization_node")
+    circle_static_pub = rospy.Publisher('/cairo_2d_sim/create_directional_circle_static', String, queue_size=1)
         
     #############
     # CONSTANTS #
@@ -70,10 +81,10 @@ if __name__ == '__main__':
     # TSR's for each line Constraint #
     ##################################
     c2tsr_map = {}
-    c2tsr_map[()] = UnconstrainedPRMTSR()
-    c2tsr_map[(1,)] = LineConstraintPRMTSR((405, 105), (405, 805))
-    c2tsr_map[(2,)] = LineTargetingConstraintPRMTSR([405, 100], [1205, 100], [800, 500])
-    c2tsr_map[(3,)] = LineConstraintPRMTSR((1205, 105), (1195, 505))
+    c2tsr_map[()] = UnconstrainedTSR()
+    c2tsr_map[(1,)] = LineTSR((405, 105), (405, 805))
+    c2tsr_map[(2,)] = DualLineTargetingTSR([405, 100], [1205, 100], [404, 700], [1205, 700], [800, 500])
+    c2tsr_map[(3,)] = LineTSR((1205, 105), (1195, 505))
 
     ######################################
     # Constraint Intersection Optimizers #
@@ -88,14 +99,15 @@ if __name__ == '__main__':
     #################################################
     # Import demonstration data and build the model #
     #################################################
-    filepath = os.path.join(FILE_DIR, "../data/test/ipd_relax_2/*.json")
+    filepath = os.path.join(FILE_DIR, "../../data/test/demo_data_3/*.json")
     loaded_demonstration_data = load_json_files(filepath)
     # Convert imported data into Demonstrations and Observations
     demonstrations = []
     for datum in loaded_demonstration_data["data"]:
         observations = []
         for entry in datum:
-            observations.append(SimpleObservation(entry))
+            entry['applied_constraints'] = extract_constraint_map_key(entry['applied_constraints'])
+            observations.append(Observation(entry))
         demonstrations.append(Demonstration(observations))
     if len(demonstrations) == 0:
         rospy.logwarn("No prior demonstration data to model!!")
@@ -112,7 +124,7 @@ if __name__ == '__main__':
     labeled_initial_demos = demo_labeler.label(demonstrations)
     
     lfd = LfD2D(observation_xytheta_vectorizor)
-    lfd.build_keyframe_graph(labeled_initial_demos, .05)
+    lfd.build_keyframe_graph(labeled_initial_demos, .35)
     
     # The intemediate trajectory data is used to bias planning of segments between cosntraint intersection points.
     intermediate_trajectories = {key: [[o.data for o in segment] for segment in group]
@@ -141,7 +153,7 @@ if __name__ == '__main__':
             planning_G.add_nodes_from([(int(cur_node))])
             # Get TSR/Optimizer for use in the segment start/endpoint loop
             # if no optimizer exists, we simply project according to the required constraint
-            constraint_ids = extract_constraint_map_key(lfd.G.nodes[cur_node]["applied_constraints"])
+            constraint_ids = lfd.G.nodes[cur_node]["applied_constraints"]
             planning_G.nodes[int(cur_node)]["constraint_ids"] = constraint_ids
 
             
@@ -189,11 +201,11 @@ if __name__ == '__main__':
             if len(inter_trajs_data) == 0:
                 planning_state_space = Holonomic2DStateSpace(X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
             else:
-                planning_biasing_distribution = KernelDensityDistribution(bandwidth=.15)
+                planning_biasing_distribution = KernelDensityDistribution(bandwidth=.25)
                 planning_biasing_distribution.fit(inter_trajs_data)
                 planning_state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
         planning_G.edges[edge]["planning_state_space"] = planning_state_space
-        planning_G.edges[edge]['planning_tsr'] = c2tsr_map.get(planning_G.nodes[e1].get('constraint_ids', None), UnconstrainedPRMTSR())
+        planning_G.edges[edge]['planning_tsr'] = c2tsr_map.get(tuple(planning_G.nodes[e1].get('constraint_ids', ())), UnconstrainedTSR())
 
     #     # generate a starting point, and a steering point, according to constraints (if applicable). 
     #     # check if the starting point for the segment has generated already:
@@ -202,13 +214,13 @@ if __name__ == '__main__':
             while not found:
                 # sample a candidate point from the keyframe model
                 candidate_point = lfd.sample_from_keyframe(e1, n_samples=1)
-
+                
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
-                point_optimizer = optimization_map.get(planning_G.nodes[e1]['constraint_ids'], None)
+                point_optimizer = optimization_map.get(tuple(planning_G.nodes[e1]['constraint_ids']), None)
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
-                    tsr = c2tsr_map.get(planning_G.nodes[e1]['constraint_ids'], None)
-                    waypoint = tsr.project(candidate_point)
+                    tsr = c2tsr_map.get(tuple(planning_G.nodes[e1]['constraint_ids']), None)
+                    waypoint = tsr.project(candidate_point, None)
                     if waypoint is not None:
                         planning_G.nodes[e1]["waypoint"] = waypoint
                         found = True
@@ -221,6 +233,10 @@ if __name__ == '__main__':
                         found = True
                     else:
                         continue
+                # Send the used candidate point to the replay renderer:
+                publish_directed_point(circle_static_pub, candidate_point[0:2], candidate_point[2], 8, [255, 25, 0])
+                # Send the corrected point
+                publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
                 start = list(waypoint)
         else:
             start = list(planning_G.nodes[e1]['waypoint'])
@@ -231,11 +247,11 @@ if __name__ == '__main__':
                 candidate_point = lfd.sample_from_keyframe(e2, 1)
                 
                 # get the TSR/Optimizer for use in the segment start/endpoint loop
-                point_optimizer = optimization_map.get(planning_G.nodes[e2]['constraint_ids'], None)
+                point_optimizer = optimization_map.get(tuple(planning_G.nodes[e2]['constraint_ids']), None)
                 if point_optimizer is None:
                     # we use the TSR projection to get the point
-                    tsr = c2tsr_map.get(planning_G.nodes[e2]['constraint_ids'], None)
-                    waypoint = tsr.project(candidate_point)
+                    tsr = c2tsr_map.get(tuple(planning_G.nodes[e2]['constraint_ids']), None)
+                    waypoint = tsr.project(candidate_point, None)
                     if waypoint is not None:
                         planning_G.nodes[e2]["waypoint"] = waypoint
                         found = True
@@ -248,6 +264,11 @@ if __name__ == '__main__':
                         found = True
                     else:
                         continue
+                 # Send to the game renderer:
+                publish_directed_point(circle_static_pub, candidate_point[0:2], candidate_point[2], 8, [255, 25, 0])
+                # Send the updated correct point
+                publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
+
                 end = list(waypoint)
         else:
             end = list(planning_G.nodes[e2]['waypoint'])
