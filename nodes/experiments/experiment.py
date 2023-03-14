@@ -30,12 +30,8 @@ from cairo_lfd.data.io import load_json_files
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
-def demo_vectorizor(demonstrations):
-    vectorized_demos = []
-    for demo in demonstrations:
-        vectorized_demo = [[ob.data["robot"]["x"], ob.data["robot"]["y"], ob.data["robot"]["theta"]] for ob in demo]
-        vectorized_demos.append(vectorized_demo)
-    return vectorized_demos
+def demo_vectorizor(demonstration):
+    return [[ob.data["robot"]["x"], ob.data["robot"]["y"], ob.data["robot"]["theta"]] for ob in demonstration.observations]
 
 # def observation_xy_vectorizor(ob):
 #     return [ob.data["robot_state"]["x"], ob.data["robot_state"]["y"]]
@@ -45,14 +41,13 @@ def observation_xytheta_vectorizor(ob):
 
 def extract_constraint_map_key(orderd_constraint_dict):
     constraint_key = []
-    for key in orderd_constraint_dict.keys():
-        if orderd_constraint_dict["c1"] is True:
-            constraint_key.append(1)
-        if orderd_constraint_dict["c2"] is True:
-            constraint_key.append(2)
-        if orderd_constraint_dict["c3"] is True:
-            constraint_key.append(3)
-    return tuple(set(constraint_key))
+    if orderd_constraint_dict["c1"] is True:
+        constraint_key.append(1)
+    if orderd_constraint_dict["c2"] is True:
+        constraint_key.append(2)
+    if orderd_constraint_dict["c3"] is True:
+        constraint_key.append(3)
+    return constraint_key
 
 
 if __name__ == "__main__":
@@ -74,8 +69,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=arg_fmt)
     parser.add_argument(
         "-p", "--participant", dest="participant", default="1",
-        choices=["1", "2", "3"],
-        help='Which of the three participants to run: "1", "2" or "3"'
+        choices=["1", "2", "3", "4", "5"],
+        help='Which of the three participants to run: "1", "2", "3", "4", or "5"'
         )
     parser.add_argument(
         "-b", "--biased_planning", dest="biased_planning", default="1",
@@ -99,8 +94,8 @@ if __name__ == "__main__":
     X_DOMAIN = [0, 1800]
     Y_DOMAIN = [0, 1000]
     THETA_DOMAIN = [0, 360]
-    KEYFRAME_KDE_BANDWIDTH = .35
-    SAMPLING_BIAS_KDE_BANDWIDTH = .05
+    KEYFRAME_KDE_BANDWIDTH = .15
+    SAMPLING_BIAS_KDE_BANDWIDTH = .15
     MOVE_TIME = 10
     EPSILON = 50
     EXTENSION_DISTANCE = 25
@@ -109,8 +104,10 @@ if __name__ == "__main__":
     EVAL_OUTPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/output".format(participant))
     GOLD_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/gold/*.json".format(participant))
     TRAINING_DEMO_INPUT_DIRECTORY = os.path.join(FILE_DIR, "../../data/experiments/participant_{}/input/*.json".format(participant))
-    TRIALS = 4
-    
+    TRIALS = 50
+    EXECUTE_PATH = False
+    PUBLISH_TEXT_LABEL = False
+
     ##############
     # EVALUATION #
     ##############
@@ -161,6 +158,7 @@ if __name__ == "__main__":
         for datum in loaded_demonstration_data["data"]:
             observations = []
             for entry in datum:
+                entry['applied_constraints'] = extract_constraint_map_key(entry['applied_constraints'])
                 observations.append(Observation(entry))
             demonstrations.append(Demonstration(observations))
         if len(demonstrations) == 0:
@@ -201,8 +199,7 @@ if __name__ == "__main__":
         start = (100, 500, 360)
 
         # Create a starting node for the planning graph.
-        planning_G.add_nodes_from([("start", {"waypoint": start, "tsr": c2tsr_map[(1,)]})])
-        EVAL_CONSTRAINT_ORDER.append((1,))
+        planning_G.add_nodes_from([("start", {"waypoint": start, "tsr": None})])
         
         prior_planning_G_vertex_id = 0
         for cur_node in lfd.G.get_keyframe_sequence():
@@ -210,7 +207,7 @@ if __name__ == "__main__":
                 planning_G.add_nodes_from([(int(cur_node))])
                 # Get TSR/Optimizer for use in the segment start/endpoint loop
                 # if no optimizer exists, we simply project according to the required constraint
-                constraint_ids = extract_constraint_map_key(lfd.G.nodes[cur_node]["applied_constraints"])
+                constraint_ids = lfd.G.nodes[cur_node]["applied_constraints"]
                 planning_G.nodes[int(cur_node)]["constraint_ids"] = constraint_ids
 
         # The goal configuration. 
@@ -266,15 +263,15 @@ if __name__ == "__main__":
                         planning_biasing_distribution.fit(inter_trajs_data)
                         planning_state_space = Holonomic2DBiasedStateSpace(planning_biasing_distribution, X_DOMAIN, Y_DOMAIN, THETA_DOMAIN)
                 planning_G.edges[edge]["planning_state_space"] = planning_state_space
-                planning_G.edges[edge]["planning_tsr"] = c2tsr_map.get(planning_G.nodes[e1].get("constraint_ids", None), UnconstrainedTSR())
+                planning_G.edges[edge]["planning_tsr"] = c2tsr_map.get(tuple(planning_G.nodes[e1].get("constraint_ids", ())), UnconstrainedTSR())
                 EVAL_CONSTRAINT_ORDER.append(planning_G.nodes[e1].get("constraint_ids", None))
 
                 # generate a starting point, and a steering point, according to constraints (if applicable). 
                 # check if the starting point for the segment has generated already:
                 if  planning_G.nodes[e1].get("waypoint", None) is None:
                     found = False
+                    eval_trial.start_timer("steering_point_generation_1")
                     while not found:
-                        eval_trial.start_timer("steering_point_generation_1")
                         # Sample a candidate point acording to to the intersection point style condition          #
                         if ip_style == "kf" or ip_style == "optkf":
                             # In this case, the candidate point is derived
@@ -296,10 +293,10 @@ if __name__ == "__main__":
                         elif ip_style == "optkf" or ip_style == "opt":
                             # If the style indicates optimization, we get the TSR Projection/Optimizer to
                             # produce the point
-                            point_optimizer = optimization_map.get(planning_G.nodes[e1]["constraint_ids"], None)
+                            point_optimizer = optimization_map.get(tuple(planning_G.nodes[e1]["constraint_ids"]), None)
                             if point_optimizer is None and not found:
                                 # we use the TSR projection to get the point
-                                tsr = c2tsr_map.get(planning_G.nodes[e1]["constraint_ids"], None)
+                                tsr = c2tsr_map.get(tuple(planning_G.nodes[e1]["constraint_ids"]), None)
                                 waypoint = tsr.project(candidate_point, None)
                                 if waypoint is not None:
                                     planning_G.nodes[e1]["waypoint"] = waypoint
@@ -308,19 +305,22 @@ if __name__ == "__main__":
                                 else:
                                     continue
                             elif not found:
-                                waypoint = point_optimizer.solve(candidate_point)
+                                if ip_style == "optkf":
+                                    waypoint = point_optimizer.solve(candidate_point)
+                                else:
+                                    waypoint = point_optimizer.solve(candidate_point, no_kf=True)
                                 if waypoint is not None:
                                     planning_G.nodes[e1]["waypoint"] = waypoint
                                     found = True
                                     IP_GEN_TYPES.append("optimization")
                                 else:
                                     continue
-                        # Evaluate TSR distance for each point.
-                        tsr = c2tsr_map.get(planning_G.nodes[e1]["constraint_ids"], None)
-                        if tsr is not None:
-                            IP_TSR_DISTANCES.append(tsr.distance(waypoint))
-                        else:
-                            IP_TSR_DISTANCES.append(0)
+                    # Evaluate TSR distance for each point.
+                    tsr = c2tsr_map.get(tuple(planning_G.nodes[e1]["constraint_ids"]), None)
+                    if tsr is not None:
+                        IP_TSR_DISTANCES.append(tsr.distance(waypoint))
+                    else:
+                        IP_TSR_DISTANCES.append(0)
 
                         IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_1"))
                         # Create a line between the two points. 
@@ -328,7 +328,8 @@ if __name__ == "__main__":
                         # Send to the game renderer:
                         publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
                          # Send the label to the rendered:
-                        publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e1]["constraint_ids"]), [0, 0, 0])
+                        if PUBLISH_TEXT_LABEL:
+                            publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e1]["constraint_ids"]), [0, 0, 0])
                         # Send the updated correct point
                         publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
                         start = list(waypoint)
@@ -359,10 +360,10 @@ if __name__ == "__main__":
                         elif ip_style == "optkf" or ip_style == "opt":
                             # If the style indicates optimization, we get the TSR Projection/Optimizer to
                             # produce the point
-                            point_optimizer = optimization_map.get(planning_G.nodes[e2]["constraint_ids"], None)
+                            point_optimizer = optimization_map.get(tuple(planning_G.nodes[e2]["constraint_ids"]), None)
                             if point_optimizer is None and not found:
                                 # we use the TSR projection to get the point
-                                tsr = c2tsr_map.get(planning_G.nodes[e2]["constraint_ids"], None)
+                                tsr = c2tsr_map.get(tuple(planning_G.nodes[e2]["constraint_ids"]), None)
                                 waypoint = tsr.project(candidate_point, None)
                                 if waypoint is not None:
                                     planning_G.nodes[e2]["waypoint"] = waypoint
@@ -371,7 +372,10 @@ if __name__ == "__main__":
                                 else:
                                     continue
                             elif not found:
-                                waypoint = point_optimizer.solve(candidate_point)
+                                if ip_style == "optkf":
+                                    waypoint = point_optimizer.solve(candidate_point)
+                                else:
+                                    waypoint = point_optimizer.solve(candidate_point, no_kf=True)
                                 if waypoint is not None:
                                     planning_G.nodes[e2]["waypoint"] = waypoint
                                     found = True
@@ -380,7 +384,7 @@ if __name__ == "__main__":
                                     continue
                         IP_GEN_TIMES.append(eval_trial.end_timer("steering_point_generation_2"))
                         # Evaluate TSR distance for each point.
-                        tsr = c2tsr_map.get(planning_G.nodes[e2]["constraint_ids"], None)
+                        tsr = c2tsr_map.get(tuple(planning_G.nodes[e2]["constraint_ids"]), None)
                         if tsr is not None:
                             IP_TSR_DISTANCES.append(tsr.distance(waypoint))
                         else:
@@ -390,7 +394,8 @@ if __name__ == "__main__":
                         # Send to the game renderer:
                         publish_directed_point(circle_static_pub, list(candidate_point[0:2]), candidate_point[2], 8, [255, 25, 0])
                          # Send the label to the rendered:
-                        publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e2]["constraint_ids"]), [0, 0, 0])
+                        if PUBLISH_TEXT_LABEL:
+                            publish_text_label(text_label_pub, [waypoint[0] + 5, waypoint[1] + 5], "Edge: {}, Constraints: {}".format(edge, planning_G.nodes[e2]["constraint_ids"]), [0, 0, 0])
                         # Send the updated correct point
                         publish_directed_point(circle_static_pub, waypoint[0:2], waypoint[2], 8, [0, 25, 255])
                         end = list(waypoint)
@@ -461,24 +466,27 @@ if __name__ == "__main__":
             eval_trial.ip_tsr_distances = IP_TSR_DISTANCES
             eval_trial.trajectory = trajectory
             evaluation.add_trial(eval_trial)
-            # Execute
-            prior_time = timed_trajectory[0][0]
-            for point in timed_trajectory:
-                header = Header()
-                header.stamp = rospy.Time.now()
-                pose2d = Pose2D()
-                pose2d.x = point[1][0]
-                pose2d.y = point[1][1]
-                pose2d.theta = point[1][2]
-                pose2dstamped = Pose2DStamped()
-                pose2dstamped.header = header
-                pose2dstamped.pose2d = pose2d
-                state_pub.publish(pose2dstamped)
-                rospy.sleep(point[0] - prior_time)
-                prior_time = point[0]
+            
+            if EXECUTE_PATH:
+                # Execute
+                prior_time = timed_trajectory[0][0]
+                for point in timed_trajectory:
+                    header = Header()
+                    header.stamp = rospy.Time.now()
+                    pose2d = Pose2D()
+                    pose2d.x = point[1][0]
+                    pose2d.y = point[1][1]
+                    pose2d.theta = point[1][2]
+                    pose2dstamped = Pose2DStamped()
+                    pose2dstamped.header = header
+                    pose2dstamped.pose2d = pose2d
+                    state_pub.publish(pose2dstamped)
+                    rospy.sleep(point[0] - prior_time)
+                    prior_time = point[0]
             mc = MenuCommands()
             mc.restart.data = True
             menu_commands_pub.publish(mc)
+            time.sleep(4)
         else:
             # Update trial evaluation data with failure-style data.
             eval_trial.success = "X"

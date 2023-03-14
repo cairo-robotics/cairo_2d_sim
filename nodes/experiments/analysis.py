@@ -1,9 +1,9 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 import os
 
 import rospy
 
-from cairo_2d_sim.evaluation.analysis import PlanningTimeAnalysis, PathLengthAnalysis, A2SAnalysis, A2FAnalysis
+from cairo_2d_sim.evaluation.analysis import PlanningTimeAnalysis, SuccessPercentageAnalysis, PathLengthAnalysis, A2SAnalysis, A2FAnalysis
 
 FILE_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -25,6 +25,8 @@ if __name__ == "__main__":
     print()
     pta = PlanningTimeAnalysis(EVAL_OUTPUT_DIRECTORY)
     print(pta.stats())
+    spa = SuccessPercentageAnalysis(EVAL_OUTPUT_DIRECTORY)
+    print(spa.stats())
     print()
     pla = PathLengthAnalysis(EVAL_OUTPUT_DIRECTORY)
     print(pla.stats())

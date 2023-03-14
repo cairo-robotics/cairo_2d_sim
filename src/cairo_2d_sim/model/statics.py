@@ -41,7 +41,7 @@ class LineStatic:
         self.color = color if color is not None else [0, 0, 0]
     
     def render(self, screen):
-        pg.draw.line(screen, self.color, (self.x1, self.y1), (self.x2, self.y2), width=3)
+        pg.draw.line(screen, self.color, (self.x1, self.y1), (self.x2, self.y2), width=10)
 
 class CircleStatic:
 
@@ -63,6 +63,6 @@ class TextLabelStatic:
         self.color = color if color is not None else [0, 0, 0]
 
     def render(self, screen):
-        font = pg.freetype.SysFont('Comic Sans MS', 15)
+        font = pg.freetype.SysFont('Comic Sans MS', 20)
         # or just `render_to` the target surface.
         font.render_to(screen, (self.x, self.y), self.text, self.color)
