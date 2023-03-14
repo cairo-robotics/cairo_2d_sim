@@ -1,0 +1,6 @@
+<launch>
+
+    <node pkg="cairo_2d_sim" name="ipd_relex" type="ipd_relax_tree.py" output = "screen" cwd="node"/>
+    <node pkg="cairo_2d_sim" name="replay" type="replay.py" output = "screen" cwd="node"/>
+
+</launch>

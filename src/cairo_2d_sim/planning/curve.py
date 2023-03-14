@@ -225,20 +225,12 @@ def parametric_xytheta_lerp(q0, q1, steps):
     return  np.concatenate((xy_interp, theta_interp), axis=1)
 
 def xytheta_distance(q0, q1):
-    """
-    
-
-    Args:
-        q0 (ndarray): Numpy vector representing the starting point.
-        q1 (ndarray): Numpy vector representing the ending point.
-
-    Returns:
-        [ndarray]: Numpy array of the interpolation between q0 and q1.
-    """
     euclid_distance = abs(np.linalg.norm(np.array(q0[:2]) - np.array(q1[0:2])))
+    # if euclid_distance > 360:
+    #     return euclid_distance
     theta_diff = q0[2] - q1[2]
     theta_delta = abs((theta_diff + 180) % 360 - 180)
-    return euclid_distance + theta_delta
+    return .9 * euclid_distance + .1 * theta_delta
 
 class JointTrajectoryCurve():
     

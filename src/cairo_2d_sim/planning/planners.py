@@ -1,8 +1,12 @@
 
 import random
+import time
+import json
 
 import numpy as np
 import igraph as ig
+import rospy
+from std_msgs.msg import String
 
 from cairo_2d_sim.planning.constraints import project_config, val2str, name2idx
 from cairo_2d_sim.planning.neighbors import NearestNeighbors
@@ -10,22 +14,51 @@ from cairo_2d_sim.planning.curve import cumulative_distance
 
 __all__ = ['CRRT', 'CPRM']
 
+class PlanningTimeoutException(Exception):
+    pass
 
+class MaxItersException(Exception):
+    pass
+
+
+def publish_directed_point(publisher, position, angle, radius, color):
+    data = {}
+    data["x"] = position[0]
+    data["y"] = position[1]
+    data["radius"] = radius
+    data["angle"] = angle
+    data["color"] = color
+    data_str = json.dumps(data)
+    publisher.publish(data_str)
+
+def publish_line(publisher, pos1, pos2, color):
+    data = {}
+    data["x1"] = pos1[0]
+    data["y1"] = pos1[1]
+    data["x2"] = pos2[0]
+    data["y2"] = pos2[1]
+    data["color"] = color
+    data_str = json.dumps(data)
+    publisher.publish(data_str)
 
 class CRRT():
 
 
-    def __init__(self, state_space, state_validity_checker, interpolation_fn, distance_fn, params, logger=None):
+    def __init__(self, state_space, state_validity_checker, interpolation_fn, distance_fn, params):
         self.tree = ig.Graph(directed=True)
         self.state_space = state_space
         self.svc = state_validity_checker
         self.interp_fn = interpolation_fn
         self.distance_fn = distance_fn
         self.smooth_path = params.get('smooth_path', False)
-        self.epsilon = params.get('epsilon', (50, 10))
-        self.extension_distance = params.get('extension_distance', 50)
+        self.epsilon = params.get('epsilon', 50)
+        self.xy_extension_distance = params.get('extension_distance', 25)
         self.smoothing_time = params.get('smoothing_time', 10)
-        self.iters = 100000
+        self.max_iters = params.get('max_iters', 1000)
+        self.timeout_in_seconds = params.get('planning_timeout', 10)
+        self.display_tree = params.get('display_tree', False)
+        self.circle_static_pub = rospy.Publisher("/cairo_2d_sim/create_directional_circle_static", String, queue_size=10000)
+        self.line_static_pub = rospy.Publisher("/cairo_2d_sim/create_line_static", String, queue_size=10000)
     
     def plan(self, tsr, start_q, goal_q):
         """ 
@@ -34,19 +67,28 @@ class CRRT():
     
         """
         self.start_q = start_q
+        self.start_name = val2str(start_q)
         self.goal_q = goal_q
-        self._initialize_tree(start_q, goal_q)
-        self.tree = self.crrt(tsr)
-        print("Size of tree: {}".format(len(self.tree.vs)))
-        if self.tree is not None:
-            graph_path = self._extract_graph_path()
-            if len(graph_path) == 1:
-                return None
-            else:
-                if self.smooth_path:
-                    self._smooth_path(graph_path, tsr, self.smoothing_time)
-                #print("Graph path found: {}".format(graph_path))
-                return self._extract_graph_path()
+        self.goal_name = val2str(goal_q)
+       
+        if np.linalg.norm(np.array(start_q[0:2]) - np.array(goal_q[0:2])) < self.epsilon:
+            self._add_vertex(self.tree, start_q)
+            self._add_vertex(self.tree, goal_q)
+            self._add_edge(self.tree, start_q, goal_q, self._distance(start_q, goal_q))
+            return self._extract_graph_path()
+        else:
+            self._initialize_tree(start_q, goal_q)
+            self.tree = self.crrt(tsr)
+            print("Size of tree: {}".format(len(self.tree.vs)))
+            if self.tree is not None:
+                graph_path = self._extract_graph_path()
+                if len(graph_path) == 1:
+                    return None
+                else:
+                    if self.smooth_path:
+                        self._smooth_path(graph_path, tsr, self.smoothing_time)
+                    #print("Graph path found: {}".format(graph_path))
+                    return self._extract_graph_path()
         # plan = self.get_plan(graph_path)
         # #self._smooth(path)
         # return plan
@@ -54,18 +96,28 @@ class CRRT():
     def crrt(self, tsr):
         iters=0
         continue_to_plan = True
+         
+        tick = time.perf_counter()
+    
         while continue_to_plan:
             iters += 1
-            if iters > self.iters:
-                raise Exception("Max iterations reached for CRRT")
+            tock = time.perf_counter()
+            if iters > self.max_iters:
+                raise  MaxItersException("Max iterations reached for CRRT")
+            if tock - tick > self.timeout_in_seconds:
+                raise PlanningTimeoutException()
             q_target = self._random_config()
             q_near = self._neighbors(self.tree, q_target)
             q_proj = self._constrained_extend(tsr, q_near, q_target)
             if q_proj is not None:
                 self._add_vertex(self.tree, q_proj)
-                # print(q_near, q_proj)
                 # print(self._distance(q_near, q_proj))
                 self._add_edge(self.tree, q_near, q_proj, self._distance(q_near, q_proj))
+                if self.display_tree:
+                    time.sleep(.01)
+                    publish_directed_point(self.circle_static_pub, position=q_proj[0:2], angle=q_proj[2], radius=5, color=[0, 255, 0])
+                    publish_line(self.line_static_pub, q_near[0:2], q_proj[0:2], color=[0, 50, 0])
+            # print(q_near, q_proj, self._distance(q_near, q_proj), self._equal(q_proj, self.goal_q))
             if q_proj is not None and self._equal(q_proj, self.goal_q):
                 self._add_vertex(self.tree, self.goal_q)
                 self._add_edge(self.tree, q_proj, self.goal_q, self._distance(q_proj, self.goal_q))
@@ -79,19 +131,20 @@ class CRRT():
         self.tree = ig.Graph(directed=True)
     
     def _constrained_extend(self, tsr, q_near, q_target):
-        projected_point =  self._constrain_config(tsr=tsr, q_target=q_target, q_near=q_near)
-        v1 = projected_point[0] - q_near[0]
-        v2 = projected_point[1] - q_near[1]
+        extend_distance = min(self.xy_extension_distance, abs(np.linalg.norm(np.array(q_near[:2]) - np.array(q_target[0:2]))))
+        v1 = q_target[0] - q_near[0]
+        v2 = q_target[1] - q_near[1]
         v_norm = (v1**2 + v2**2)**.5
-        x_extension = min(abs(q_near[0] - projected_point[0]), abs(self.extension_distance * v1/v_norm))
-        y_extension = min(abs(q_near[1] - projected_point[1]), abs(self.extension_distance * v2/v_norm))
-        return [q_near[0] + x_extension, q_near[1] + y_extension, q_near[2]]
-        
+        x_extension = extend_distance * v1/v_norm
+        y_extension = extend_distance * v2/v_norm
+        ext_target = [q_near[0] + x_extension, q_near[1] + y_extension, q_target[2]]
+        projected_point =  self._constrain_config(tsr=tsr, q_target=ext_target, q_near=q_near)
+        return projected_point
             
-    def _constrain_config(self, tsr, q_target, q_near)              :
+    def _constrain_config(self, tsr, q_target, q_near):
         # these functions can be very problem specific. For now we'll just assume the most very basic form.
         # futre implementations might favor injecting the constrain_config function 
-        return project_config(tsr, q_target, q_near, self.extension_distance)
+        return project_config(tsr, q_target, q_near)
     
 
     def _extract_graph_path(self, tree=None, from_idx=None, to_idx=None):
@@ -116,11 +169,12 @@ class CRRT():
             path = path + seg
         return path
 
-    def _neighbors(self, tree, q_s, fraction_random=.1):
+    def _neighbors(self, tree, q_s, fraction_random=0.0):
         if len(tree.vs) == 1:
             return [v for v in tree.vs][0]['value']
         if random.random() <= fraction_random:
             return random.choice([v for v in tree.vs])['value']
+        # sort on distance, get closest point value from ascending order sort.
         return sorted([v for v in tree.vs], key= lambda vertex: self._distance(vertex['value'], q_s))[0]['value']
 
     def _random_config(self):
@@ -132,7 +186,6 @@ class CRRT():
         self.goal_name = val2str(goal_q)
         self._add_vertex(self.tree, start_q)
    
-
     def _equal(self, q1, q2):
         if self.distance_fn(q1, q2) <= self.epsilon:
             return True

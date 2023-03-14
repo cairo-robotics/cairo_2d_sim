@@ -34,6 +34,9 @@ if __name__ == '__main__':
                 game_engine = Replay(screen, env, sprites, statics, controllers, toggles)
             clock.tick(60)
         except KeyboardInterrupt:
-            rospy.signal_shutdown("Demonstration game over.")
+            rospy.signal_shutdown("Replay over.")
             pg.quit()
             sys.exit()
+    rospy.signal_shutdown("Replay over.")
+    pg.quit()
+    sys.exit()

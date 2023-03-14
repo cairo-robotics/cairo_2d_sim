@@ -1,0 +1,139 @@
+{
+    "participant": "2",
+    "planning_bias": "0",
+    "ip_style": "optkf",
+    "trials": [
+        {
+            "path_length": 12852.583642103607,
+            "a2s_distance": 20091.186200742417,
+            "success": false,
+            "a2f_percentage": 0.9504950495049505,
+            "planning_time": 1.3225946149905212,
+            "ip_generation_times": [
+                0.0002466360019752756,
+                0.00018352399638388306,
+                0.03300720600236673,
+                0.0004113109898753464,
+                0.032413296998129226,
+                0.0003117540036328137
+            ],
+            "ip_generation_types": [
+                "projection",
+                "projection",
+                "optimization",
+                "projection",
+                "optimization",
+                "projection"
+            ],
+            "ip_tsr_distances": [
+                0.0,
+                0.0,
+                175.36047056272116,
+                0.0,
+                0,
+                0.0
+            ],
+            "trajectory": [],
+            "notes": "None"
+        },
+        {
+            "path_length": 13930.787452221572,
+            "a2s_distance": 20504.402932305406,
+            "success": true,
+            "a2f_percentage": 0.9488888888888889,
+            "planning_time": 0.2927798820019234,
+            "ip_generation_times": [
+                0.00014302101044449955,
+                0.00015235900355037302,
+                0.032948890002444386,
+                0.0003455769910942763,
+                0.032584833999862894,
+                0.0003570620028767735
+            ],
+            "ip_generation_types": [
+                "projection",
+                "projection",
+                "optimization",
+                "projection",
+                "optimization",
+                "projection"
+            ],
+            "ip_tsr_distances": [
+                0.0,
+                0.0,
+                175.36063727540085,
+                0.0,
+                0,
+                0.0
+            ],
+            "trajectory": [],
+            "notes": "None"
+        },
+        {
+            "path_length": 16031.360682360857,
+            "a2s_distance": 22444.658389901673,
+            "success": true,
+            "a2f_percentage": 0.958252427184466,
+            "planning_time": 3.2378764910099562,
+            "ip_generation_times": [
+                0.00016710799536667764,
+                0.00014354000450111926,
+                0.03501138600404374,
+                0.00044185100705362856,
+                0.03930774600303266,
+                0.00029662800079677254
+            ],
+            "ip_generation_types": [
+                "projection",
+                "projection",
+                "optimization",
+                "projection",
+                "optimization",
+                "projection"
+            ],
+            "ip_tsr_distances": [
+                0.0,
+                0.0,
+                175.36314741399707,
+                0.0,
+                0,
+                0.0
+            ],
+            "trajectory": [],
+            "notes": "None"
+        },
+        {
+            "path_length": 14945.860147750567,
+            "a2s_distance": 18033.912626317542,
+            "success": false,
+            "a2f_percentage": 0.9542553191489361,
+            "planning_time": 1.7824929490016075,
+            "ip_generation_times": [
+                0.00013038401084486395,
+                0.00017671399109531194,
+                0.03890230199613143,
+                0.0003407820040592924,
+                0.03601530799642205,
+                0.00031310299527831376
+            ],
+            "ip_generation_types": [
+                "projection",
+                "projection",
+                "optimization",
+                "projection",
+                "optimization",
+                "projection"
+            ],
+            "ip_tsr_distances": [
+                0.0,
+                0.0,
+                175.36293333441563,
+                0.0,
+                0,
+                0.0
+            ],
+            "trajectory": [],
+            "notes": "None"
+        }
+    ]
+}
